@@ -38,27 +38,144 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Install coding agents
+      - name: Build
+        run: cargo build --release
+
+      - name: Create mock session fixtures
         run: |
-          npm install -g @openai/codex || true
-          npm install -g @google/gemini-cli || true
-          npm install -g @qwen-code/qwen-code@latest || true
-          npm install -g opencode-ai@latest || true
-          pip install kimi-cli || true
+          # Claude — JSONL in project hash dir
+          mkdir -p ~/.claude/projects/project-smoke
+          cat > ~/.claude/projects/project-smoke/smoke-claude.jsonl << 'EOF'
+          {"type":"user","cwd":"/home/runner/project","message":{"content":"Smoke test Claude session"}}
+          {"type":"assistant","message":{"content":"Claude response."}}
+          EOF
 
-      - name: Verify agent binaries
+          # Codex — JSONL in date dir
+          mkdir -p ~/.codex/sessions/2025-01-15
+          cat > ~/.codex/sessions/2025-01-15/session.jsonl << 'EOF'
+          {"type":"session_meta","payload":{"id":"smoke-codex","cwd":"/home/runner/project"}}
+          {"type":"turn_context","payload":{"approval_policy":"always"}}
+          {"type":"event_msg","payload":{"type":"user_message","message":"Smoke test Codex session"}}
+          {"type":"response_item","payload":{"role":"assistant","content":[{"text":"Codex response."}]}}
+          EOF
+
+          # Copilot CLI — JSONL flat
+          mkdir -p ~/.copilot/session-state
+          cat > ~/.copilot/session-state/smoke.jsonl << 'EOF'
+          {"type":"session.start","data":{"sessionId":"smoke-copilot"}}
+          {"type":"session.info","data":{"infoType":"folder_trust","message":"Folder /home/runner/project is trusted"}}
+          {"type":"user.message","data":{"content":"Smoke test Copilot CLI session"}}
+          {"type":"assistant.message","data":{"content":"Copilot response."}}
+          EOF
+
+          # Copilot VSCode — JSON session file
+          mkdir -p ~/.config/Code/User/globalStorage/emptyWindowChatSessions
+          mkdir -p ~/.config/Code/User/workspaceStorage
+          cat > ~/.config/Code/User/globalStorage/emptyWindowChatSessions/smoke.json << 'EOF'
+          {
+            "sessionId": "smoke-copilot-vscode",
+            "customTitle": "Smoke Copilot VSCode",
+            "creationDate": 1700000000000,
+            "requests": [
+              {"message": {"text": "Smoke test VSCode session"}, "response": [{"value": "VSCode response."}]}
+            ]
+          }
+          EOF
+
+          # Gemini — JSON in project hash / chats
+          mkdir -p ~/.gemini/tmp/project-smoke/chats
+          cat > ~/.gemini/tmp/project-smoke/chats/session-2025-01-15T10-00-smoke123.json << 'EOF'
+          {
+            "sessionId": "smoke-gemini",
+            "kind": "main",
+            "startTime": "2025-01-15T10:00:00Z",
+            "lastUpdated": "2025-01-15T11:00:00Z",
+            "directories": ["/home/runner/project"],
+            "messages": [
+              {"type": "user", "content": [{"text": "Smoke test Gemini session"}]},
+              {"type": "gemini", "content": [{"text": "Gemini response."}]}
+            ]
+          }
+          EOF
+
+          # Kimi — context.jsonl + state.json in session dir
+          mkdir -p ~/.local/share/kimi/sessions/workhash/smoke-session
+          cat > ~/.local/share/kimi/sessions/workhash/smoke-session/context.jsonl << 'EOF'
+          {"role":"user","content":"Smoke test Kimi session","timestamp":"2025-01-15T10:00:00Z"}
+          {"role":"assistant","content":"Kimi response."}
+          EOF
+          cat > ~/.local/share/kimi/sessions/workhash/smoke-session/state.json << 'EOF'
+          {"work_dir": "/home/runner/project"}
+          EOF
+
+          # Qwen — JSONL in project hash / chats, UUID filename
+          mkdir -p ~/.qwen/tmp/project-smoke/chats
+          cat > ~/.qwen/tmp/project-smoke/chats/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl << 'EOF'
+          {"sessionId":"smoke-qwen","cwd":"/home/runner/project","timestamp":"2025-01-15T10:00:00Z","type":"user","message":{"parts":[{"text":"Smoke test Qwen session"}]}}
+          {"type":"assistant","message":{"parts":[{"text":"Qwen response."}]}}
+          EOF
+
+          # Vibe — meta.json + messages.jsonl in session dir
+          mkdir -p ~/.vibe/logs/session/session_smoke
+          cat > ~/.vibe/logs/session/session_smoke/meta.json << 'EOF'
+          {
+            "session_id": "smoke-vibe",
+            "title": "Smoke Vibe Session",
+            "environment": {"working_directory": "/home/runner/project"},
+            "start_time": "2025-01-15T10:30:00Z",
+            "config": {"auto_approve": false}
+          }
+          EOF
+          cat > ~/.vibe/logs/session/session_smoke/messages.jsonl << 'EOF'
+          {"role":"user","content":"Smoke test Vibe session"}
+          {"role":"assistant","content":"Vibe response."}
+          EOF
+
+          # Crush — SQLite via projects.json
+          mkdir -p ~/.local/share/crush
+          sqlite3 ~/.local/share/crush/crush.db << 'SQL'
+          CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT, message_count INTEGER, updated_at INTEGER, created_at INTEGER);
+          CREATE TABLE messages (id TEXT, session_id TEXT, role TEXT, parts TEXT, created_at INTEGER);
+          INSERT INTO sessions VALUES ('smoke-crush', 'Smoke Crush Session', 2, 1700000000, 1700000000);
+          INSERT INTO messages VALUES ('m1', 'smoke-crush', 'user', '[{"type":"text","data":{"text":"Smoke test Crush session"}}]', 1700000000);
+          INSERT INTO messages VALUES ('m2', 'smoke-crush', 'assistant', '[{"type":"text","data":{"text":"Crush response."}}]', 1700000001);
+          SQL
+          cat > ~/.local/share/crush/projects.json << EOF
+          {"projects": [{"path": "/home/runner/project", "data_dir": "$HOME/.local/share/crush"}]}
+          EOF
+
+          # OpenCode — SQLite
+          mkdir -p ~/.local/share/opencode
+          sqlite3 ~/.local/share/opencode/opencode.db << 'SQL'
+          CREATE TABLE session (id TEXT PRIMARY KEY, title TEXT, directory TEXT, time_created INTEGER, time_updated INTEGER);
+          CREATE TABLE message (id TEXT, session_id TEXT, data TEXT, time_created INTEGER);
+          CREATE TABLE part (id TEXT, message_id TEXT, session_id TEXT, data TEXT, time_created INTEGER);
+          INSERT INTO session VALUES ('smoke-opencode', 'Smoke OpenCode Session', '/home/runner/project', 1700000000000, 1700000000000);
+          INSERT INTO message VALUES ('m1', 'smoke-opencode', '{"role":"user"}', 1700000000000);
+          INSERT INTO part VALUES ('p1', 'm1', 'smoke-opencode', '{"type":"text","text":"Smoke test OpenCode session"}', 1700000000000);
+          INSERT INTO message VALUES ('m2', 'smoke-opencode', '{"role":"assistant"}', 1700000001000);
+          INSERT INTO part VALUES ('p2', 'm2', 'smoke-opencode', '{"type":"text","text":"OpenCode response."}', 1700000001000);
+          SQL
+
+      - name: Verify fr-rs discovers all agents
         run: |
-          echo "=== Installed agent versions ==="
-          which codex && codex --version || echo "codex: not found"
-          which gemini && gemini --version || echo "gemini: not found"
-          which qwen-code && qwen-code --version || echo "qwen-code: not found"
-          which opencode && opencode --version || echo "opencode: not found"
-          which kimi && kimi --version || echo "kimi: not found"
+          OUTPUT=$(./target/release/fr-rs --list --format=json --rebuild 2>/dev/null)
+          FAILED=0
+          for agent in claude codex copilot-cli copilot-vscode gemini kimi qwen vibe crush opencode; do
+            if echo "$OUTPUT" | grep -q "\"agent\":\"$agent\""; then
+              echo "OK  $agent"
+            else
+              echo "FAIL  $agent: not found"
+              FAILED=1
+            fi
+          done
+          echo ""
+          echo "=== All sessions ==="
+          echo "$OUTPUT" | head -20
+          if [ "$FAILED" = "1" ]; then
+            exit 1
+          fi
