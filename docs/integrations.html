@@ -96,18 +96,15 @@ frs() {
 
 <h3>Setup</h3>
 
-<p class="step" data-n="1">Copy the channel config:</p>
-<pre><code>cp docs/television-channel.toml ~/.config/television/cable/fr-rs.toml</code></pre>
-
-<p class="step" data-n="2">Launch:</p>
-<pre><code>tv fr-rs</code></pre>
-
-<h3>Channel config</h3>
+<p class="step" data-n="1">Save the following as <code>~/.config/television/cable/fr-rs.toml</code> (<a href="https://github.com/rucnyz/rust-resume/blob/main/docs/television-channel.toml">source</a>):</p>
 <pre><code>[[cable_channel]]
 name = "fr-rs"
 source_command = "fr-rs --list --format=tsv"
 preview_command = "fr-rs --preview {0}"
 preview_delimiter = "\t"</code></pre>
+
+<p class="step" data-n="2">Launch:</p>
+<pre><code>tv fr-rs</code></pre>
 
 <h2 id="matugen">matugen</h2>
 
@@ -115,8 +112,17 @@ preview_delimiter = "\t"</code></pre>
 
 <h3>Setup</h3>
 
-<p class="step" data-n="1">Copy the template:</p>
-<pre><code>cp docs/matugen-template.toml ~/.config/matugen/templates/fr-rs.toml</code></pre>
+<p class="step" data-n="1">Save the following as <code>~/.config/matugen/templates/fr-rs.toml</code> (<a href="https://github.com/rucnyz/rust-resume/blob/main/docs/matugen-template.toml">source</a>):</p>
+<pre><code>[theme]
+primary = "{{colors.primary.default.hex}}"
+on_surface = "{{colors.on_surface.default.hex}}"
+on_surface_variant = "{{colors.on_surface_variant.default.hex}}"
+surface_variant = "{{colors.surface_variant.default.hex}}"
+surface_container = "{{colors.surface_container.default.hex}}"
+secondary = "{{colors.secondary.default.hex}}"
+tertiary = "{{colors.tertiary.default.hex}}"
+primary_container = "{{colors.primary_container.default.hex}}"
+error = "{{colors.error.default.hex}}"</code></pre>
 
 <p class="step" data-n="2">Add to your matugen config (<code>~/.config/matugen/config.toml</code>):</p>
 <pre><code>[templates.fr-rs]
