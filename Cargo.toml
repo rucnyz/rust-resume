@@ -34,6 +34,7 @@ tui-scrollbar = { version = "0.2.2", features = ["crossterm_0_29"] }
 clap_complete = "4.5.66"
 clap_complete_nushell = "4.5.10"
 jieba-rs = "0.8.1"
+rayon = "1"
 
 [features]
 default = []

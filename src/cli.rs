@@ -373,7 +373,7 @@ fn print_init(shell_arg: &str) -> anyhow::Result<()> {
 
 fn preview_session(id: &str) -> anyhow::Result<()> {
     let mut engine = SessionSearch::new();
-    engine.get_all_sessions(false);
+    engine.get_all_sessions(false, None);
     let session = engine
         .get_session_by_id(id)
         .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;
@@ -383,7 +383,7 @@ fn preview_session(id: &str) -> anyhow::Result<()> {
 
 fn resume_session_by_id(id: &str, yolo: bool) -> anyhow::Result<()> {
     let mut engine = SessionSearch::new();
-    engine.get_all_sessions(false);
+    engine.get_all_sessions(false, None);
     let session = engine
         .get_session_by_id(id)
         .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?
@@ -409,7 +409,7 @@ fn list_sessions(cli: &Cli) -> anyhow::Result<()> {
     let mut engine = SessionSearch::new();
 
     // Index all sessions (incremental)
-    let sessions = engine.get_all_sessions(cli.rebuild);
+    let sessions = engine.get_all_sessions(cli.rebuild, cli.agent.as_deref());
 
     // If there's a query, use full-text search
     let results = if let Some(ref query) = cli.query {

@@ -18,6 +18,7 @@ use crate::session::Session;
 const SCHEMA_VERSION: u32 = 21; // Bumped for Rust version
 const LOCK_FILE: &str = ".tantivy-writer.lock";
 const WRITER_MEMORY: usize = 50_000_000; // 50MB
+const SCAN_MARKER: &str = ".last_scan";
 
 pub struct TantivyIndex {
     index_path: PathBuf,
@@ -139,6 +140,24 @@ impl TantivyIndex {
         if let Some(reader) = &self.reader {
             let _ = reader.reload();
         }
+    }
+
+    /// Check if the index was scanned recently (within `max_age` seconds).
+    pub fn is_fresh(&self, max_age_secs: u64) -> bool {
+        let marker = self.index_path.join(SCAN_MARKER);
+        marker
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age.as_secs() < max_age_secs)
+    }
+
+    /// Touch the scan marker to record the current time.
+    pub fn touch_scan_marker(&self) {
+        let marker = self.index_path.join(SCAN_MARKER);
+        // Write current timestamp to update mtime
+        let _ = fs::write(&marker, "");
     }
 
     fn searcher(&self) -> Searcher {

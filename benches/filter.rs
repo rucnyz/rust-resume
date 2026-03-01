@@ -13,7 +13,7 @@ fn setup_app() -> App {
 
     // Load real sessions from the user's index
     let mut search = SessionSearch::new();
-    let sessions = search.get_all_sessions(false);
+    let sessions = search.get_all_sessions(false, None);
     app.sessions = sessions;
     app.search_engine = search;
     app.update_agent_counts();

@@ -30,6 +30,7 @@ dependencies = [
  "jieba-rs",
  "ratatui",
  "ratatui-image",
+ "rayon",
  "regex",
  "rusqlite",
  "serde",

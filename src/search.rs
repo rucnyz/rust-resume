@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use rayon::prelude::*;
+
 use crate::adapter::AgentAdapter;
 use crate::adapters::{
     ClaudeAdapter, CodexAdapter, CopilotAdapter, CopilotVSCodeAdapter, CrushAdapter, GeminiAdapter,
@@ -77,7 +79,19 @@ impl SessionSearch {
     }
 
     /// Get all sessions, using incremental updates.
-    pub fn get_all_sessions(&mut self, force_refresh: bool) -> Vec<Session> {
+    /// Skips adapter scanning if the index was scanned within the last 5 seconds
+    /// (e.g. rapid CLI calls from fzf/television preview).
+    /// If `agent_hint` is provided, only scan that adapter (others use cached data).
+    pub fn get_all_sessions(
+        &mut self,
+        force_refresh: bool,
+        agent_hint: Option<&str>,
+    ) -> Vec<Session> {
+        // Skip adapter scan if index is fresh (< 5s old) and not forcing
+        if !force_refresh && self.index.is_fresh(5) {
+            return self.finalize_sessions();
+        }
+
         let known = if force_refresh {
             HashMap::new()
         } else {
@@ -88,11 +102,26 @@ impl SessionSearch {
             self.index.clear();
         }
 
+        // Select adapters to scan: all, or just the one matching agent_hint
+        let adapters_to_scan: Vec<&dyn AgentAdapter> = match agent_hint {
+            Some(agent) => self
+                .adapters
+                .iter()
+                .filter(|a| a.name() == agent)
+                .map(|a| a.as_ref())
+                .collect(),
+            None => self.adapters.iter().map(|a| a.as_ref()).collect(),
+        };
+
+        // Parallel incremental scan across adapters
+        let results: Vec<(Vec<Session>, Vec<String>)> = adapters_to_scan
+            .par_iter()
+            .map(|adapter| adapter.find_sessions_incremental(&known, &None, &None))
+            .collect();
+
         let mut all_new: Vec<Session> = Vec::new();
         let mut all_deleted: Vec<String> = Vec::new();
-
-        for adapter in &self.adapters {
-            let (new_sessions, deleted) = adapter.find_sessions_incremental(&known, &None, &None);
+        for (new_sessions, deleted) in results {
             all_new.extend(new_sessions);
             all_deleted.extend(deleted);
         }
@@ -105,6 +134,7 @@ impl SessionSearch {
             self.index.update_sessions(&all_new);
         }
 
+        self.index.touch_scan_marker();
         self.finalize_sessions()
     }
 
