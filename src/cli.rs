@@ -405,6 +405,7 @@ fn resume_session_by_id(id: &str, yolo: bool) -> anyhow::Result<()> {
 }
 
 fn list_sessions(cli: &Cli) -> anyhow::Result<()> {
+    let start = std::time::Instant::now();
     let mut engine = SessionSearch::new();
 
     // Index all sessions (incremental)
@@ -438,7 +439,7 @@ fn list_sessions(cli: &Cli) -> anyhow::Result<()> {
         match cli.format.as_str() {
             "tsv" => print_sessions_tsv(&results),
             "json" => print_sessions_json(&results),
-            _ => print_sessions(&results),
+            _ => print_sessions(&results, start.elapsed()),
         }
     }
     Ok(())
@@ -455,7 +456,7 @@ fn apply_basic_filters(mut sessions: Vec<Session>, cli: &Cli) -> Vec<Session> {
     sessions
 }
 
-fn print_sessions(sessions: &[Session]) {
+fn print_sessions(sessions: &[Session], elapsed: std::time::Duration) {
     let home = dirs::home_dir().unwrap_or_default();
     let home_str = home.to_string_lossy();
     let total = sessions.len();
@@ -493,7 +494,8 @@ fn print_sessions(sessions: &[Session]) {
         );
     }
 
-    println!("\nShowing {display_count} of {total} sessions");
+    let ms = elapsed.as_secs_f64() * 1000.0;
+    println!("\nShowing {display_count} of {total} sessions ({ms:.0}ms)");
 }
 
 fn print_sessions_tsv(sessions: &[Session]) {
