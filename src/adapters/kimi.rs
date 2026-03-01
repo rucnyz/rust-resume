@@ -23,8 +23,10 @@ fn kimi_sessions_base() -> PathBuf {
         }
     }
 
-    // Default: ~/.local/share/kimi/sessions/
-    let default = home.join(".local/share/kimi/sessions");
+    // Default: data_dir/kimi/sessions/
+    let default = dirs::data_dir()
+        .unwrap_or_else(|| home.join(".local/share"))
+        .join("kimi/sessions");
     if default.is_dir() {
         return default;
     }

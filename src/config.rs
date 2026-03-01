@@ -110,11 +110,15 @@ pub fn copilot_dir() -> PathBuf {
 }
 
 pub fn opencode_dir() -> PathBuf {
-    home_dir().join(".local/share/opencode")
+    dirs::data_dir()
+        .unwrap_or_else(|| home_dir().join(".local/share"))
+        .join("opencode")
 }
 
 pub fn opencode_db() -> PathBuf {
-    home_dir().join(".local/share/opencode/opencode.db")
+    dirs::data_dir()
+        .unwrap_or_else(|| home_dir().join(".local/share"))
+        .join("opencode/opencode.db")
 }
 
 pub fn vibe_dir() -> PathBuf {
@@ -122,15 +126,21 @@ pub fn vibe_dir() -> PathBuf {
 }
 
 pub fn crush_projects_file() -> PathBuf {
-    home_dir().join(".local/share/crush/projects.json")
+    dirs::data_dir()
+        .unwrap_or_else(|| home_dir().join(".local/share"))
+        .join("crush/projects.json")
 }
 
 pub fn cache_dir() -> PathBuf {
-    home_dir().join(".cache/rust-resume")
+    dirs::cache_dir()
+        .unwrap_or_else(|| home_dir().join(".cache"))
+        .join("rust-resume")
 }
 
 pub fn config_file() -> PathBuf {
-    home_dir().join(".config/rust-resume/config.toml")
+    dirs::config_dir()
+        .unwrap_or_else(|| home_dir().join(".config"))
+        .join("rust-resume/config.toml")
 }
 
 pub fn index_dir() -> PathBuf {

@@ -6,7 +6,11 @@ use std::process::Command;
 use anyhow::{Context, Result, bail};
 
 const REPO: &str = "rucnyz/rust-resume";
-const BINARY: &str = "fr-rs";
+const BINARY: &str = if cfg!(target_os = "windows") {
+    "fr-rs.exe"
+} else {
+    "fr-rs"
+};
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn self_update() -> Result<()> {
@@ -24,36 +28,57 @@ pub fn self_update() -> Result<()> {
     eprintln!("Downloading...");
 
     let target = detect_target()?;
-    let release_name = format!("{BINARY}-{latest}-{target}");
-    let tarball = format!("{release_name}.tar.gz");
-    let url = format!("https://github.com/{REPO}/releases/download/{latest}/{tarball}");
+    let release_name = format!("fr-rs-{latest}-{target}");
+    let is_windows = cfg!(target_os = "windows");
+    let archive_name = if is_windows {
+        format!("{release_name}.zip")
+    } else {
+        format!("{release_name}.tar.gz")
+    };
+    let url = format!("https://github.com/{REPO}/releases/download/{latest}/{archive_name}");
 
     let tmpdir = tempdir()?;
-    let tar_path = tmpdir.join(&tarball);
+    let archive_path = tmpdir.join(&archive_name);
 
     // Download
-    curl_download(&url, &tar_path)
+    curl_download(&url, &archive_path)
         .context("Failed to download release. Check your internet connection.")?;
 
     // Verify checksum if available
     let sha_url = format!("{url}.sha256");
-    let sha_path = tmpdir.join(format!("{tarball}.sha256"));
+    let sha_path = tmpdir.join(format!("{archive_name}.sha256"));
     if curl_download(&sha_url, &sha_path).is_ok() {
-        verify_checksum(&tmpdir, &tarball)?;
+        verify_checksum(&tmpdir, &archive_name)?;
     }
 
     // Extract
-    let status = Command::new("tar")
-        .args([
-            "-xzf",
-            &tar_path.to_string_lossy(),
-            "-C",
-            &tmpdir.to_string_lossy(),
-        ])
-        .status()
-        .context("Failed to extract archive")?;
-    if !status.success() {
-        bail!("tar extraction failed");
+    if is_windows {
+        // Windows: use tar (bsdtar) which handles zip files
+        let status = Command::new("tar")
+            .args([
+                "-xf",
+                &archive_path.to_string_lossy(),
+                "-C",
+                &tmpdir.to_string_lossy(),
+            ])
+            .status()
+            .context("Failed to extract archive")?;
+        if !status.success() {
+            bail!("Archive extraction failed");
+        }
+    } else {
+        let status = Command::new("tar")
+            .args([
+                "-xzf",
+                &archive_path.to_string_lossy(),
+                "-C",
+                &tmpdir.to_string_lossy(),
+            ])
+            .status()
+            .context("Failed to extract archive")?;
+        if !status.success() {
+            bail!("tar extraction failed");
+        }
     }
 
     // Find current binary path and replace
@@ -128,6 +153,7 @@ fn detect_target() -> Result<String> {
         ("linux", "aarch64") => Ok("aarch64-unknown-linux-gnu".into()),
         ("macos", "x86_64") => Ok("x86_64-apple-darwin".into()),
         ("macos", "aarch64") => Ok("aarch64-apple-darwin".into()),
+        ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc".into()),
         _ => bail!(
             "No pre-built binary for {os}-{arch}. Build from source: cargo install --git https://github.com/{REPO}"
         ),
@@ -159,27 +185,69 @@ fn curl_download(url: &str, dest: &Path) -> Result<()> {
 }
 
 fn verify_checksum(dir: &Path, tarball: &str) -> Result<()> {
-    // Try shasum (macOS) then sha256sum (Linux)
-    let sha_tool = if Command::new("shasum").arg("--version").output().is_ok() {
-        "shasum"
-    } else {
-        "sha256sum"
-    };
+    let sha_file = format!("{tarball}.sha256");
 
-    let status = if sha_tool == "shasum" {
+    // Read expected hash from .sha256 file (format: "hash  filename")
+    let sha_content =
+        fs::read_to_string(dir.join(&sha_file)).context("Failed to read checksum file")?;
+    let expected_hash = sha_content
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_lowercase();
+
+    if expected_hash.is_empty() {
+        bail!("Empty checksum file");
+    }
+
+    // Try shasum (macOS), sha256sum (Linux), or certutil (Windows)
+    let output = if Command::new("shasum").arg("--version").output().is_ok() {
         Command::new("shasum")
-            .args(["-a", "256", "-c", &format!("{tarball}.sha256")])
+            .args(["-a", "256", tarball])
             .current_dir(dir)
-            .status()
-    } else {
+            .output()
+    } else if Command::new("sha256sum").arg("--version").output().is_ok() {
         Command::new("sha256sum")
-            .args(["-c", &format!("{tarball}.sha256")])
+            .arg(tarball)
             .current_dir(dir)
-            .status()
+            .output()
+    } else {
+        // Windows: certutil -hashfile <file> SHA256
+        Command::new("certutil")
+            .args(["-hashfile", tarball, "SHA256"])
+            .current_dir(dir)
+            .output()
     };
 
-    match status {
-        Ok(s) if s.success() => Ok(()),
-        _ => bail!("Checksum verification failed"),
+    let output = output.context("No checksum tool available (shasum, sha256sum, or certutil)")?;
+    if !output.status.success() {
+        bail!("Checksum tool failed");
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // certutil outputs hash on the second line; shasum/sha256sum output "hash  filename"
+    let computed_hash = stdout
+        .lines()
+        .find_map(|line| {
+            let trimmed = line.trim().to_lowercase();
+            // Skip lines that are clearly not hashes (certutil headers/footers)
+            if trimmed.len() == 64 && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+                Some(trimmed)
+            } else {
+                // shasum/sha256sum format: "hash  filename"
+                let first = trimmed.split_whitespace().next().unwrap_or("");
+                if first.len() == 64 && first.chars().all(|c| c.is_ascii_hexdigit()) {
+                    Some(first.to_string())
+                } else {
+                    None
+                }
+            }
+        })
+        .unwrap_or_default();
+
+    if computed_hash == expected_hash {
+        Ok(())
+    } else {
+        bail!("Checksum mismatch: expected {expected_hash}, got {computed_hash}");
     }
 }

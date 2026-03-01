@@ -221,32 +221,33 @@ pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'
     spans
 }
 
-/// Copy text to clipboard (Linux: wl-copy or xclip).
+/// Copy text to clipboard (cross-platform).
 pub fn copy_to_clipboard(text: &str) -> bool {
-    // Try wl-copy first (Wayland)
-    if let Ok(mut child) = std::process::Command::new("wl-copy")
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-    {
-        use std::io::Write;
-        if let Some(ref mut stdin) = child.stdin {
-            let _ = stdin.write_all(text.as_bytes());
-        }
-        return child.wait().map(|s| s.success()).unwrap_or(false);
-    }
+    use std::io::Write;
+    use std::process::{Command, Stdio};
 
-    // Fallback to xclip
-    if let Ok(mut child) = std::process::Command::new("xclip")
-        .args(["-selection", "clipboard"])
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-    {
-        use std::io::Write;
-        if let Some(ref mut stdin) = child.stdin {
-            let _ = stdin.write_all(text.as_bytes());
+    let try_cmd = |cmd: &str, args: &[&str]| -> bool {
+        if let Ok(mut child) = Command::new(cmd)
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            if let Some(ref mut stdin) = child.stdin {
+                let _ = stdin.write_all(text.as_bytes());
+            }
+            return child.wait().map(|s| s.success()).unwrap_or(false);
         }
-        return child.wait().map(|s| s.success()).unwrap_or(false);
-    }
+        false
+    };
 
-    false
+    if cfg!(target_os = "windows") {
+        try_cmd("clip", &[])
+    } else if cfg!(target_os = "macos") {
+        try_cmd("pbcopy", &[])
+    } else {
+        // Linux: try Wayland first, then X11
+        try_cmd("wl-copy", &[]) || try_cmd("xclip", &["-selection", "clipboard"])
+    }
 }

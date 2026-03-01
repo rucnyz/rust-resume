@@ -94,7 +94,7 @@ impl CopilotAdapter {
         let mut messages: Vec<String> = Vec::new();
         let mut turn_count: usize = 0;
 
-        let folder_re = Regex::new(r"Folder (/[^\s]+)").ok()?;
+        let folder_re = Regex::new(r"Folder ([^\s]+)").ok()?;
 
         for line in data.split(|&b| b == b'\n') {
             if line.is_empty() {
