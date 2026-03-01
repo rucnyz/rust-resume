@@ -86,6 +86,9 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    // Pre-warm jieba dictionary in background so first Ctrl+W doesn't lag
+    App::warm_jieba();
+
     let mut app = App::new(yolo, kb, theme);
     app.icons = icon_manager;
     if let Some(dir) = directory {

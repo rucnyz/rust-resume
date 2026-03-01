@@ -96,13 +96,14 @@
 <tr><td><kbd>Ctrl+P</kbd></td><td>Toggle preview layout (bottom / right)</td></tr>
 <tr><td><kbd>Ctrl+E</kbd></td><td>Toggle mouse capture (on = scroll/click, off = select text)</td></tr>
 <tr><td><kbd>Shift+mouse drag</kbd></td><td>Native text selection (even with mouse capture on)</td></tr>
+<tr><td><kbd>Ctrl+R</kbd></td><td>Refresh sessions (re-scan all adapters)</td></tr>
 <tr><td><kbd>Esc</kbd> / <kbd>Ctrl+C</kbd> / <kbd>Ctrl+Q</kbd></td><td>Quit</td></tr>
 </table>
 
 <h3>Search Input</h3>
 <table>
 <tr><th>Key</th><th>Action</th></tr>
-<tr><td><kbd>Ctrl+W</kbd></td><td>Delete word backward</td></tr>
+<tr><td><kbd>Ctrl+W</kbd> / <kbd>Ctrl+Backspace</kbd></td><td>Delete word backward (CJK-aware via jieba)</td></tr>
 <tr><td><kbd>Ctrl+U</kbd></td><td>Clear search</td></tr>
 <tr><td><kbd>Ctrl+&larr;</kbd> / <kbd>Ctrl+&rarr;</kbd></td><td>Jump word left / right</td></tr>
 <tr><td><kbd>Backspace</kbd></td><td>Delete character</td></tr>
@@ -136,7 +137,9 @@ fr-rs --resume &lt;session-id&gt;    # Resume session directly by ID
 
 # Other
 fr-rs --stats                  # Show index stats
-fr-rs update                   # Self-update to latest release</code></pre>
+fr-rs update                   # Self-update to latest release
+fr-rs init                     # Set up shell integration (Alt+G + completions)
+fr-rs uninstall                # Remove shell integration</code></pre>
 
 <p>See <a href="integrations.html">Integrations</a> for fzf, television, and matugen setup guides.</p>
 

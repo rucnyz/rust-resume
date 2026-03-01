@@ -167,6 +167,13 @@ impl App {
         }
     }
 
+    /// Pre-warm jieba dictionary in background so first Ctrl+W doesn't lag.
+    pub fn warm_jieba() {
+        std::thread::spawn(|| {
+            let _ = &*JIEBA;
+        });
+    }
+
     /// Start loading sessions in a background thread (progressive).
     pub fn start_loading(&mut self) {
         self.loading = true;
