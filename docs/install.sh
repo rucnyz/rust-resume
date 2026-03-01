@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# rust-resume (fr-rs) install script
-# Usage: curl -fsSL https://rucnyz.github.io/rust-resume/install.sh | bash
+# agents-sesame (ase) install script
+# Usage: curl -fsSL https://rucnyz.github.io/agents-sesame/install.sh | bash
 
-REPO="rucnyz/rust-resume"
-BINARY="fr-rs"
+REPO="rucnyz/agents-sesame"
+BINARY="ase"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -87,7 +87,8 @@ install_binary() {
     mv "$TMPDIR/$RELEASE_NAME/$BINARY" "$INSTALL_DIR/$BINARY"
     chmod +x "$INSTALL_DIR/$BINARY"
 
-    success "$BINARY $VER installed to $INSTALL_DIR/$BINARY"
+    ln -sf "$INSTALL_DIR/$BINARY" "$INSTALL_DIR/agents-sesame"
+    success "$BINARY $VER installed to $INSTALL_DIR/$BINARY (also available as agents-sesame)"
 
     # Check if install dir is in PATH
     if ! echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_DIR"; then
@@ -114,7 +115,7 @@ setup_shell() {
     if [[ -n "$FRRS" ]]; then
         echo ""
         info "Setting up shell integration..."
-        "$FRRS" init && success "Shell integration configured" || info "Run 'fr-rs init' manually to set up shell integration"
+        "$FRRS" init && success "Shell integration configured" || info "Run 'ase init' manually to set up shell integration"
     fi
 }
 

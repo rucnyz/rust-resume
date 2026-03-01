@@ -1,4 +1,4 @@
-# rust-resume (fr-rs)
+# agents-sesame (ase)
 
 Fast fuzzy finder TUI for coding agent session history. Search and resume sessions across 10 coding agents.
 
@@ -11,47 +11,47 @@ Claude Code, Codex CLI, GitHub Copilot CLI, Copilot VSCode, Crush, Gemini CLI, K
 ### Binary (recommended)
 
 ```sh
-curl -fsSL https://rucnyz.github.io/rust-resume/install.sh | bash
+curl -fsSL https://rucnyz.github.io/agents-sesame/install.sh | bash
 ```
 
-Installs to `~/.local/bin/fr-rs`. Supports Linux (x86_64/aarch64) and macOS (Intel/Apple Silicon).
+Installs `ase` (+ `agents-sesame` symlink) to `~/.local/bin/`. Supports Linux (x86_64/aarch64) and macOS (Intel/Apple Silicon).
 
 ### From source
 
 ```sh
 # requires Rust toolchain (https://rustup.rs)
-cargo install --git https://github.com/rucnyz/rust-resume
+cargo install --git https://github.com/rucnyz/agents-sesame
 ```
 
 ### Build from scratch
 
 ```sh
-git clone https://github.com/rucnyz/rust-resume.git
-cd rust-resume
+git clone https://github.com/rucnyz/agents-sesame.git
+cd agents-sesame
 cargo build --release
-# binary at target/release/fr-rs
+# binary at target/release/ase
 ```
 
 ## Usage
 
 ```sh
-fr-rs                          # Open TUI
-fr-rs --list                   # List sessions to stdout
-fr-rs --list 'niri'            # Search and list
-fr-rs --agent claude --list    # Filter by agent
-fr-rs --rebuild --list         # Force rebuild index
-fr-rs --stats                  # Show index stats
+ase                          # Open TUI
+ase --list                   # List sessions to stdout
+ase --list 'niri'            # Search and list
+ase --agent claude --list    # Filter by agent
+ase --rebuild --list         # Force rebuild index
+ase --stats                  # Show index stats
 
 # Scriptable CLI (for fzf, television, pipes)
-fr-rs --list --format=tsv      # Tab-delimited output
-fr-rs --list --format=json     # JSON lines (one object per line)
-fr-rs --preview <session-id>   # Print session content to stdout
-fr-rs --resume <session-id>    # Resume session directly by ID
+ase --list --format=tsv      # Tab-delimited output
+ase --list --format=json     # JSON lines (one object per line)
+ase --preview <session-id>   # Print session content to stdout
+ase --resume <session-id>    # Resume session directly by ID
 
 # Management
-fr-rs init                     # Set up shell integration (Alt+G + completions)
-fr-rs update                   # Self-update to latest release
-fr-rs uninstall                # Remove binary, config, cache, and shell integration
+ase init                     # Set up shell integration (Alt+G + completions)
+ase update                   # Self-update to latest release
+ase uninstall                # Remove binary, config, cache, and shell integration
 ```
 
 ## Keybindings
@@ -75,12 +75,12 @@ fr-rs uninstall                # Remove binary, config, cache, and shell integra
 |--------|---------|---------|
 | `agent:` | `agent:claude` | Filter by agent |
 | `-agent:` | `-agent:opencode` | Exclude agent |
-| `dir:` | `dir:rust-resume` | Filter by directory |
+| `dir:` | `dir:agents-sesame` | Filter by directory |
 | `date:` | `date:today`, `date:3d`, `date:1w` | Filter by time |
 
 ## Config
 
-Optional config at `~/.config/rust-resume/config.toml`:
+Optional config at `~/.config/agents-sesame/config.toml`:
 
 ```toml
 [agents.claude]
@@ -114,8 +114,8 @@ All fields are optional — unset values use built-in defaults.
 Set up <kbd>Alt+G</kbd> keybinding and tab completions:
 
 ```sh
-fr-rs init               # auto-detect shell, writes to config
-fr-rs init fish          # explicit shell
+ase init               # auto-detect shell, writes to config
+ase init fish          # explicit shell
 ```
 
 ## Integrations
@@ -123,9 +123,9 @@ fr-rs init fish          # explicit shell
 ### fzf
 
 ```bash
-fr-rs --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
-  --preview='fr-rs --preview {1}' \
-  --bind='enter:become(fr-rs --resume {1})'
+ase --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
+  --preview='ase --preview {1}' \
+  --bind='enter:become(ase --resume {1})'
 ```
 
 ### television
@@ -133,13 +133,13 @@ fr-rs --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
 Copy the cable channel config to your television config:
 
 ```sh
-cp docs/television-channel.toml ~/.config/television/cable/fr-rs.toml
+cp docs/television-channel.toml ~/.config/television/cable/ase.toml
 ```
 
 Then run:
 
 ```sh
-tv fr-rs
+tv ase
 ```
 
 ### matugen (auto-theme from wallpaper)
@@ -147,22 +147,29 @@ tv fr-rs
 1. Copy the template:
 
 ```sh
-cp docs/matugen-template.toml ~/.config/matugen/templates/fr-rs.toml
+cp docs/matugen-template.toml ~/.config/matugen/templates/ase.toml
 ```
 
 2. Add to your matugen config (`~/.config/matugen/config.toml`):
 
 ```toml
-[templates.fr-rs]
-input_path = "~/.config/matugen/templates/fr-rs.toml"
-output_path = "~/.config/rust-resume/config.toml"
+[templates.ase]
+input_path = "~/.config/matugen/templates/ase.toml"
+output_path = "~/.config/agents-sesame/config.toml"
 ```
 
-3. Run matugen — fr-rs will pick up the generated theme on next launch:
+3. Run matugen — ase will pick up the generated theme on next launch:
 
 ```sh
 matugen image /path/to/wallpaper.jpg
 ```
+
+## Roadmap
+
+- Semantic search (embedding-based similarity)
+- HTTP server mode (optional feature)
+- MCP server mode
+- AI skills / tool-use integration
 
 ## License
 

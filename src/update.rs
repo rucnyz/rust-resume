@@ -5,11 +5,11 @@ use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 
-const REPO: &str = "rucnyz/rust-resume";
+const REPO: &str = "rucnyz/agents-sesame";
 const BINARY: &str = if cfg!(target_os = "windows") {
-    "fr-rs.exe"
+    "ase.exe"
 } else {
-    "fr-rs"
+    "ase"
 };
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -28,7 +28,7 @@ pub fn self_update() -> Result<()> {
     eprintln!("Downloading...");
 
     let target = detect_target()?;
-    let release_name = format!("fr-rs-{latest}-{target}");
+    let release_name = format!("ase-{latest}-{target}");
     let is_windows = cfg!(target_os = "windows");
     let archive_name = if is_windows {
         format!("{release_name}.zip")
@@ -168,7 +168,7 @@ fn current_exe_path() -> Result<PathBuf> {
 }
 
 fn tempdir() -> Result<PathBuf> {
-    let dir = env::temp_dir().join(format!("fr-rs-update-{}", std::process::id()));
+    let dir = env::temp_dir().join(format!("ase-update-{}", std::process::id()));
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }

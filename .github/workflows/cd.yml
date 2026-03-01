@@ -83,7 +83,7 @@ jobs:
       - name: Strip binary
         if: runner.os != 'Windows'
         run: |
-          BIN=target/${{ matrix.target }}/release/fr-rs${{ matrix.binary-postfix }}
+          BIN=target/${{ matrix.target }}/release/ase${{ matrix.binary-postfix }}
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
             sudo apt-get install -y binutils-aarch64-linux-gnu
             aarch64-linux-gnu-strip "$BIN"
@@ -94,8 +94,8 @@ jobs:
       - name: Package (Unix)
         if: runner.os != 'Windows'
         run: |
-          BIN=target/${{ matrix.target }}/release/fr-rs${{ matrix.binary-postfix }}
-          RELEASE_NAME=fr-rs-${GITHUB_REF/refs\/tags\//}-${{ matrix.target }}
+          BIN=target/${{ matrix.target }}/release/ase${{ matrix.binary-postfix }}
+          RELEASE_NAME=ase-${GITHUB_REF/refs\/tags\//}-${{ matrix.target }}
           mkdir -p "$RELEASE_NAME"
           cp "$BIN" "$RELEASE_NAME/"
           tar czvf "$RELEASE_NAME.tar.gz" "$RELEASE_NAME"
@@ -105,9 +105,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $BIN = "target/${{ matrix.target }}/release/fr-rs${{ matrix.binary-postfix }}"
+          $BIN = "target/${{ matrix.target }}/release/ase${{ matrix.binary-postfix }}"
           $TAG = $env:GITHUB_REF -replace 'refs/tags/',''
-          $RELEASE_NAME = "fr-rs-$TAG-${{ matrix.target }}"
+          $RELEASE_NAME = "ase-$TAG-${{ matrix.target }}"
           New-Item -ItemType Directory -Force -Path $RELEASE_NAME
           Copy-Item $BIN "$RELEASE_NAME/"
           Compress-Archive -Path "$RELEASE_NAME/*" -DestinationPath "$RELEASE_NAME.zip"
@@ -121,7 +121,7 @@ jobs:
           omitBody: true
           omitName: true
           artifacts: |
-            fr-rs-*.tar.gz
-            fr-rs-*.tar.gz.sha256
-            fr-rs-*.zip
-            fr-rs-*.zip.sha256
+            ase-*.tar.gz
+            ase-*.tar.gz.sha256
+            ase-*.zip
+            ase-*.zip.sha256

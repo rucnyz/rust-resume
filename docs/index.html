@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>rust-resume (fr-rs)</title>
+<title>agents-sesame (ase)</title>
 <style>
   :root {
     --bg: #0d1117; --fg: #c9d1d9; --accent: #e87b35; --link: #58a6ff;
@@ -48,18 +48,18 @@
 </button>
 
 <nav>
-  <a href="index.html" class="brand">fr-rs</a>
+  <a href="index.html" class="brand">ase</a>
   <a href="integrations.html">Integrations</a>
   <a href="theme.html">Theme</a>
 </nav>
 
-<h1>rust-resume (fr-rs)</h1>
+<h1>agents-sesame (ase)</h1>
 <p>Fast fuzzy finder TUI for coding agent session history. Search and resume sessions across 10 coding agents.</p>
 
 <h2>Install</h2>
-<pre><code>curl -fsSL https://rucnyz.github.io/rust-resume/install.sh | bash</code></pre>
+<pre><code>curl -fsSL https://rucnyz.github.io/agents-sesame/install.sh | bash</code></pre>
 <p>Or build from source:</p>
-<pre><code>cargo install --git https://github.com/rucnyz/rust-resume</code></pre>
+<pre><code>cargo install --git https://github.com/rucnyz/agents-sesame</code></pre>
 
 <h2>Supported Agents</h2>
 <p>Claude Code, Codex CLI, GitHub Copilot CLI, Copilot VSCode, Crush, Gemini CLI, Kimi CLI, OpenCode, Qwen Code, Vibe</p>
@@ -114,42 +114,42 @@
 <tr><th>Prefix</th><th>Example</th><th>Meaning</th></tr>
 <tr><td><code>agent:</code></td><td><code>agent:claude</code></td><td>Filter by agent</td></tr>
 <tr><td><code>-agent:</code></td><td><code>-agent:opencode</code></td><td>Exclude agent</td></tr>
-<tr><td><code>dir:</code></td><td><code>dir:rust-resume</code></td><td>Filter by directory</td></tr>
+<tr><td><code>dir:</code></td><td><code>dir:agents-sesame</code></td><td>Filter by directory</td></tr>
 <tr><td><code>date:</code></td><td><code>date:today</code>, <code>date:3d</code>, <code>date:1w</code></td><td>Filter by time range</td></tr>
 </table>
 
 <h2>CLI</h2>
 <pre><code># TUI
-fr-rs                          # Open TUI
-fr-rs -d /path/to/project      # Open TUI scoped to directory
+ase                          # Open TUI
+ase -d /path/to/project      # Open TUI scoped to directory
 
 # List
-fr-rs --list                   # List sessions to stdout
-fr-rs --list 'niri'            # Search and list
-fr-rs --agent claude --list    # Filter by agent
-fr-rs --rebuild --list         # Force rebuild index
+ase --list                   # List sessions to stdout
+ase --list 'niri'            # Search and list
+ase --agent claude --list    # Filter by agent
+ase --rebuild --list         # Force rebuild index
 
 # Scriptable (for fzf, television, pipes)
-fr-rs --list --format=tsv      # Tab-delimited output
-fr-rs --list --format=json     # JSON lines (one object per line)
-fr-rs --preview &lt;session-id&gt;   # Print session content to stdout
-fr-rs --resume &lt;session-id&gt;    # Resume session directly by ID
+ase --list --format=tsv      # Tab-delimited output
+ase --list --format=json     # JSON lines (one object per line)
+ase --preview &lt;session-id&gt;   # Print session content to stdout
+ase --resume &lt;session-id&gt;    # Resume session directly by ID
 
 # Other
-fr-rs --stats                  # Show index stats
-fr-rs update                   # Self-update to latest release
-fr-rs init                     # Set up shell integration (Alt+G + completions)
-fr-rs uninstall                # Remove shell integration</code></pre>
+ase --stats                  # Show index stats
+ase update                   # Self-update to latest release
+ase init                     # Set up shell integration (Alt+G + completions)
+ase uninstall                # Remove shell integration</code></pre>
 
 <p>See <a href="integrations.html">Integrations</a> for fzf, television, and matugen setup guides.</p>
 
 <h2>Shell Integration</h2>
 <p>Set up <kbd>Alt+G</kbd> keybinding and tab completions:</p>
-<pre><code>fr-rs init               # auto-detect shell, writes to config
-fr-rs init fish          # explicit shell</code></pre>
+<pre><code>ase init               # auto-detect shell, writes to config
+ase init fish          # explicit shell</code></pre>
 
 <h2>Configuration</h2>
-<p>Optional config at <code>~/.config/rust-resume/config.toml</code>. All keybindings are configurable:</p>
+<p>Optional config at <code>~/.config/agents-sesame/config.toml</code>. All keybindings are configurable:</p>
 <pre><code>[keybindings]
 quit = ["esc", "ctrl+c", "ctrl+q"]
 toggle_sort = "ctrl+s"
@@ -158,7 +158,7 @@ copy_session_content = "y"</code></pre>
 
 <p>See <a href="theme.html">Theme</a> for customizing TUI colors with Material You color roles.</p>
 
-<p><a href="https://github.com/rucnyz/rust-resume">GitHub</a></p>
+<p><a href="https://github.com/rucnyz/agents-sesame">GitHub</a></p>
 
 <script>
 function getPreferred() {

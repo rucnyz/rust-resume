@@ -1,3 +1,3 @@
 fn main() -> anyhow::Result<()> {
-    rust_resume::run()
+    agents_sesame::run()
 }

@@ -6,7 +6,7 @@ use crate::tui::utils::format_time_ago;
 
 #[derive(Parser)]
 #[command(
-    name = "fr-rs",
+    name = "ase",
     about = "Fast fuzzy finder for coding agent session history",
     version
 )]
@@ -69,9 +69,9 @@ pub enum Command {
         /// Shell to configure (fish, bash, zsh). Auto-detected if omitted.
         shell: Option<String>,
     },
-    /// Update fr-rs to the latest version
+    /// Update ase to the latest version
     Update,
-    /// Uninstall fr-rs (remove binary, shell integration, and cache)
+    /// Uninstall ase (remove binary, shell integration, and cache)
     Uninstall,
 }
 
@@ -106,10 +106,10 @@ pub fn run() -> anyhow::Result<()> {
 fn uninstall() -> anyhow::Result<()> {
     use crate::config;
 
-    println!("Uninstalling fr-rs...\n");
+    println!("Uninstalling ase...\n");
     let mut any_removed = false;
 
-    // Remove cache dir (~/.cache/rust-resume)
+    // Remove cache dir (~/.cache/agents-sesame)
     let cache = config::cache_dir();
     if cache.exists() {
         println!("Removing cache: {}", cache.display());
@@ -117,7 +117,7 @@ fn uninstall() -> anyhow::Result<()> {
         any_removed = true;
     }
 
-    // Remove config dir (~/.config/rust-resume)
+    // Remove config dir (~/.config/agents-sesame)
     let config_file = config::config_file();
     let config_dir = config_file.parent().unwrap();
     if config_dir.exists() {
@@ -136,11 +136,11 @@ fn uninstall() -> anyhow::Result<()> {
     for path in &shell_configs {
         if path.exists() {
             let content = std::fs::read_to_string(path)?;
-            if content.contains("fr-rs") {
+            if content.contains("ase") {
                 println!("Cleaning shell config: {}", path.display());
                 let cleaned: Vec<&str> = content
                     .lines()
-                    .filter(|line| !line.contains("fr-rs"))
+                    .filter(|line| !line.contains("ase"))
                     .collect();
                 std::fs::write(path, cleaned.join("\n") + "\n")?;
                 any_removed = true;
@@ -148,15 +148,22 @@ fn uninstall() -> anyhow::Result<()> {
         }
     }
 
-    // Remove binary (try ~/.local/bin/fr-rs, then current exe)
+    // Remove binary (try ~/.local/bin/ase, then current exe)
     let binary = std::env::current_exe().unwrap_or_default();
-    let local_bin = home.join(".local/bin/fr-rs");
+    let local_bin = home.join(".local/bin/ase");
 
+    let symlink = home.join(".local/bin/agents-sesame");
     if local_bin.exists() || local_bin.symlink_metadata().is_ok() {
         println!("Removing binary: {}", local_bin.display());
         std::fs::remove_file(&local_bin)?;
         any_removed = true;
-    } else if binary.exists() {
+    }
+    if symlink.exists() || symlink.symlink_metadata().is_ok() {
+        println!("Removing symlink: {}", symlink.display());
+        std::fs::remove_file(&symlink)?;
+        any_removed = true;
+    }
+    if !any_removed && binary.exists() {
         println!("Binary at {} — remove manually", binary.display());
     }
 
@@ -182,7 +189,7 @@ fn detect_shell() -> anyhow::Result<String> {
         "nu" => Ok("nushell".into()),
         "pwsh" | "powershell" => Ok("powershell".into()),
         _ => anyhow::bail!(
-            "Cannot detect shell from $SHELL={shell_path}. Specify explicitly: fr-rs init <{}>",
+            "Cannot detect shell from $SHELL={shell_path}. Specify explicitly: ase init <{}>",
             SUPPORTED_SHELLS.join("|")
         ),
     }
@@ -195,7 +202,7 @@ fn generate_completions(shell: &str) -> String {
     let mut buf = Vec::new();
     match shell {
         "nushell" | "nu" => {
-            clap_complete::generate(clap_complete_nushell::Nushell, &mut cmd, "fr-rs", &mut buf);
+            clap_complete::generate(clap_complete_nushell::Nushell, &mut cmd, "ase", &mut buf);
         }
         _ => {
             let clap_shell = match shell {
@@ -206,7 +213,7 @@ fn generate_completions(shell: &str) -> String {
                 "powershell" => clap_complete::Shell::PowerShell,
                 _ => return String::new(),
             };
-            clap_complete::generate(clap_shell, &mut cmd, "fr-rs", &mut buf);
+            clap_complete::generate(clap_shell, &mut cmd, "ase", &mut buf);
         }
     }
     String::from_utf8(buf).unwrap_or_default()
@@ -218,16 +225,16 @@ fn shell_init_code(shell: &str) -> String {
     match shell {
         "fish" => code.push_str(
             r#"
-# fr-rs value completions
-complete -c fr-rs -l agent -f -a 'claude codex copilot copilot-vscode crush gemini kimi opencode qwen vibe'
-complete -c fr-rs -l format -f -a 'table tsv json'
-complete -c fr-rs -n '__fish_seen_subcommand_from init' -f -a 'fish bash zsh elvish nushell powershell'
-complete -c fr-rs -l preview -f -a '(fr-rs --list --format=tsv 2>/dev/null | while read -d\t id agent title rest; printf "%s\t%s: %s\n" $id $agent $title; end)'
-complete -c fr-rs -l resume -f -a '(fr-rs --list --format=tsv 2>/dev/null | while read -d\t id agent title rest; printf "%s\t%s: %s\n" $id $agent $title; end)'
+# ase value completions
+complete -c ase -l agent -f -a 'claude codex copilot copilot-vscode crush gemini kimi opencode qwen vibe'
+complete -c ase -l format -f -a 'table tsv json'
+complete -c ase -n '__fish_seen_subcommand_from init' -f -a 'fish bash zsh elvish nushell powershell'
+complete -c ase -l preview -f -a '(ase --list --format=tsv 2>/dev/null | while read -d\t id agent title rest; printf "%s\t%s: %s\n" $id $agent $title; end)'
+complete -c ase -l resume -f -a '(ase --list --format=tsv 2>/dev/null | while read -d\t id agent title rest; printf "%s\t%s: %s\n" $id $agent $title; end)'
 
-# fr-rs keybinding (Alt+G)
+# ase keybinding (Alt+G)
 function __fr_rs_widget
-    fr-rs -d (pwd)
+    ase -d (pwd)
     commandline -f repaint
 end
 bind \eg __fr_rs_widget
@@ -235,7 +242,7 @@ bind \eg __fr_rs_widget
         ),
         "bash" => code.push_str(
             r#"
-# fr-rs value completions
+# ase value completions
 _fr_rs_complete() {
     local cur prev
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -244,21 +251,21 @@ _fr_rs_complete() {
         --agent) COMPREPLY=($(compgen -W "claude codex copilot copilot-vscode crush gemini kimi opencode qwen vibe" -- "$cur")) ;;
         --format) COMPREPLY=($(compgen -W "table tsv json" -- "$cur")) ;;
         init) COMPREPLY=($(compgen -W "fish bash zsh" -- "$cur")) ;;
-        --preview|--resume) COMPREPLY=($(compgen -W "$(fr-rs --ids --list 2>/dev/null)" -- "$cur")) ;;
+        --preview|--resume) COMPREPLY=($(compgen -W "$(ase --ids --list 2>/dev/null)" -- "$cur")) ;;
     esac
 }
-complete -F _fr_rs_complete fr-rs
+complete -F _fr_rs_complete ase
 
-# fr-rs keybinding (Alt+G)
+# ase keybinding (Alt+G)
 __fr_rs_widget() {
-    fr-rs -d "$PWD"
+    ase -d "$PWD"
 }
 bind -x '"\eg":"__fr_rs_widget"'
 "#,
         ),
         "zsh" => code.push_str(
             r#"
-# fr-rs value completions
+# ase value completions
 _fr_rs() {
     local -a agents=(claude codex copilot copilot-vscode crush gemini kimi opencode qwen vibe)
     local -a formats=(table tsv json)
@@ -267,15 +274,15 @@ _fr_rs() {
         --agent) compadd -a agents ;;
         --format) compadd -a formats ;;
         init) compadd -a shells ;;
-        --preview|--resume) compadd -- $(fr-rs --ids --list 2>/dev/null) ;;
+        --preview|--resume) compadd -- $(ase --ids --list 2>/dev/null) ;;
         *) _arguments '1:command:(init update uninstall)' '--agent[Filter by agent]:agent:($agents)' '--list[List sessions]' '--format[Output format]:format:($formats)' '--preview[Preview session]:id:' '--resume[Resume session]:id:' '--stats[Stats]' '--rebuild[Rebuild index]' '--yolo[Auto-approve]' ;;
     esac
 }
-compdef _fr_rs fr-rs
+compdef _fr_rs ase
 
-# fr-rs keybinding (Alt+G)
+# ase keybinding (Alt+G)
 __fr_rs_widget() {
-    fr-rs -d "$PWD"
+    ase -d "$PWD"
     zle reset-prompt
 }
 zle -N __fr_rs_widget
@@ -313,7 +320,7 @@ fn print_init(shell_arg: &str) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Write init file to ~/.config/rust-resume/init.{shell}
+    // Write init file to ~/.config/agents-sesame/init.{shell}
     let init_dir = crate::config::config_file().parent().unwrap().to_path_buf();
     std::fs::create_dir_all(&init_dir)?;
     let init_file = init_dir.join(format!("init.{shell}"));
@@ -343,7 +350,7 @@ fn print_init(shell_arg: &str) -> anyhow::Result<()> {
             if let Some(parent) = config_path.parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            let snippet = format!("\n# fr-rs shell integration\n{source_line}\n");
+            let snippet = format!("\n# ase shell integration\n{source_line}\n");
             let mut file = std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
@@ -357,7 +364,7 @@ fn print_init(shell_arg: &str) -> anyhow::Result<()> {
         );
     } else {
         println!(
-            "Add to your shell config: eval (fr-rs init {} | slurp)",
+            "Add to your shell config: eval (ase init {} | slurp)",
             shell
         );
     }

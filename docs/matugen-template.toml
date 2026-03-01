@@ -1,10 +1,10 @@
-# Matugen template for fr-rs Material You theme
-# Save this as: ~/.config/matugen/templates/fr-rs.toml
+# Matugen template for ase Material You theme
+# Save this as: ~/.config/matugen/templates/ase.toml
 #
 # Add to your matugen config (~/.config/matugen/config.toml):
-#   [templates.fr-rs]
-#   input_path = "~/.config/matugen/templates/fr-rs.toml"
-#   output_path = "~/.config/rust-resume/config.toml"
+#   [templates.ase]
+#   input_path = "~/.config/matugen/templates/ase.toml"
+#   output_path = "~/.config/agents-sesame/config.toml"
 #
 # Then run: matugen image /path/to/wallpaper.jpg
 

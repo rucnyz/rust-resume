@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use rust_resume::adapter::AgentAdapter;
-use rust_resume::adapters::*;
+use agents_sesame::adapter::AgentAdapter;
+use agents_sesame::adapters::*;
 use tempfile::TempDir;
 
 // ── Claude ───────────────────────────────────────────────────────────────
@@ -494,8 +494,8 @@ fn test_incremental_detects_new_and_deleted() {
 
 // ── Helper ───────────────────────────────────────────────────────────────
 
-fn make_session(id: &str, agent: &str) -> rust_resume::session::Session {
-    rust_resume::session::Session {
+fn make_session(id: &str, agent: &str) -> agents_sesame::session::Session {
+    agents_sesame::session::Session {
         id: id.to_string(),
         agent: agent.to_string(),
         title: "Test".to_string(),

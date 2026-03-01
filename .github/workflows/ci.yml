@@ -34,6 +34,6 @@ jobs:
         run: cargo test
 
   # TODO: agent-smoke-test — run real agents (claude, gemini, codex, etc.)
-  # to generate sessions, then verify fr-rs can discover and parse them.
+  # to generate sessions, then verify ase can discover and parse them.
   # Requires API keys in GitHub Secrets. See tests/adapters.rs for mock-based
   # adapter tests that run without secrets.

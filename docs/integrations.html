@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Integrations — fr-rs</title>
+<title>Integrations — ase</title>
 <style>
   :root {
     --bg: #0d1117; --fg: #c9d1d9; --accent: #e87b35; --link: #58a6ff;
@@ -50,69 +50,69 @@
 </button>
 
 <nav>
-  <a href="index.html" class="brand">fr-rs</a>
+  <a href="index.html" class="brand">ase</a>
   <a href="integrations.html">Integrations</a>
   <a href="theme.html">Theme</a>
 </nav>
 
 <h1>Integrations</h1>
-<p>fr-rs exposes scriptable CLI flags (<code>--preview</code>, <code>--resume</code>, <code>--format</code>) that make it easy to integrate with external tools.</p>
+<p>ase exposes scriptable CLI flags (<code>--preview</code>, <code>--resume</code>, <code>--format</code>) that make it easy to integrate with external tools.</p>
 
 <h2>fzf</h2>
 
 <p>Pipe session list into fzf with preview and resume-on-enter:</p>
 
-<pre><code>fr-rs --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
-  --preview='fr-rs --preview {1}' \
-  --bind='enter:become(fr-rs --resume {1})'</code></pre>
+<pre><code>ase --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
+  --preview='ase --preview {1}' \
+  --bind='enter:become(ase --resume {1})'</code></pre>
 
 <h3>How it works</h3>
 <table>
 <tr><th>Flag</th><th>Purpose</th></tr>
 <tr><td><code>--format=tsv</code></td><td>Tab-delimited output: ID, Agent, Title, Directory, Turns, Date</td></tr>
 <tr><td><code>--with-nth=2,3,4,5,6</code></td><td>Hide the ID column (field 1) from display, show Agent through Date</td></tr>
-<tr><td><code>--preview='fr-rs --preview {1}'</code></td><td>Show full session content in fzf preview pane (field 1 = session ID)</td></tr>
-<tr><td><code>--bind='enter:become(...)'</code></td><td>On Enter, replace fzf process with <code>fr-rs --resume</code> to resume the session</td></tr>
+<tr><td><code>--preview='ase --preview {1}'</code></td><td>Show full session content in fzf preview pane (field 1 = session ID)</td></tr>
+<tr><td><code>--bind='enter:become(...)'</code></td><td>On Enter, replace fzf process with <code>ase --resume</code> to resume the session</td></tr>
 </table>
 
 <p>Add to your shell config as a function or alias:</p>
 <pre><code># fish
 function frs
-  fr-rs --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
-    --preview='fr-rs --preview {1}' \
-    --bind='enter:become(fr-rs --resume {1})'
+  ase --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
+    --preview='ase --preview {1}' \
+    --bind='enter:become(ase --resume {1})'
 end
 
 # bash/zsh
 frs() {
-  fr-rs --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
-    --preview='fr-rs --preview {1}' \
-    --bind='enter:become(fr-rs --resume {1})'
+  ase --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
+    --preview='ase --preview {1}' \
+    --bind='enter:become(ase --resume {1})'
 }</code></pre>
 
 <h2>television</h2>
 
-<p><a href="https://github.com/alexpasmantier/television">television</a> is a fast TUI fuzzy finder. fr-rs ships a cable channel config for it.</p>
+<p><a href="https://github.com/alexpasmantier/television">television</a> is a fast TUI fuzzy finder. ase ships a cable channel config for it.</p>
 
 <h3>Setup</h3>
 
-<p class="step" data-n="1">Save the following as <code>~/.config/television/cable/fr-rs.toml</code> (<a href="https://github.com/rucnyz/rust-resume/blob/main/docs/television-channel.toml">source</a>):</p>
+<p class="step" data-n="1">Save the following as <code>~/.config/television/cable/ase.toml</code> (<a href="https://github.com/rucnyz/agents-sesame/blob/main/docs/television-channel.toml">source</a>):</p>
 <pre><code>[[cable_channel]]
-name = "fr-rs"
-source_command = "fr-rs --list --format=tsv"
-preview_command = "fr-rs --preview {0}"
+name = "ase"
+source_command = "ase --list --format=tsv"
+preview_command = "ase --preview {0}"
 preview_delimiter = "\t"</code></pre>
 
 <p class="step" data-n="2">Launch:</p>
-<pre><code>tv fr-rs</code></pre>
+<pre><code>tv ase</code></pre>
 
 <h2 id="matugen">matugen</h2>
 
-<p><a href="https://github.com/InioX/matugen">matugen</a> generates Material You color schemes from wallpaper images. fr-rs ships a template that auto-generates a theme config.</p>
+<p><a href="https://github.com/InioX/matugen">matugen</a> generates Material You color schemes from wallpaper images. ase ships a template that auto-generates a theme config.</p>
 
 <h3>Setup</h3>
 
-<p class="step" data-n="1">Save the following as <code>~/.config/matugen/templates/fr-rs.toml</code> (<a href="https://github.com/rucnyz/rust-resume/blob/main/docs/matugen-template.toml">source</a>):</p>
+<p class="step" data-n="1">Save the following as <code>~/.config/matugen/templates/ase.toml</code> (<a href="https://github.com/rucnyz/agents-sesame/blob/main/docs/matugen-template.toml">source</a>):</p>
 <pre><code>[theme]
 primary = "{{colors.primary.default.hex}}"
 on_surface = "{{colors.on_surface.default.hex}}"
@@ -125,32 +125,32 @@ primary_container = "{{colors.primary_container.default.hex}}"
 error = "{{colors.error.default.hex}}"</code></pre>
 
 <p class="step" data-n="2">Add to your matugen config (<code>~/.config/matugen/config.toml</code>):</p>
-<pre><code>[templates.fr-rs]
-input_path = "~/.config/matugen/templates/fr-rs.toml"
-output_path = "~/.config/rust-resume/config.toml"</code></pre>
+<pre><code>[templates.ase]
+input_path = "~/.config/matugen/templates/ase.toml"
+output_path = "~/.config/agents-sesame/config.toml"</code></pre>
 
 <p class="step" data-n="3">Generate theme from a wallpaper:</p>
 <pre><code>matugen image /path/to/wallpaper.jpg</code></pre>
 
-<p>This writes a <code>[theme]</code> section to <code>~/.config/rust-resume/config.toml</code>. fr-rs picks it up on next launch. See the <a href="theme.html">Theme</a> page for color role details.</p>
+<p>This writes a <code>[theme]</code> section to <code>~/.config/agents-sesame/config.toml</code>. ase picks it up on next launch. See the <a href="theme.html">Theme</a> page for color role details.</p>
 
 <h3>Pipeline</h3>
-<pre><code>wallpaper.jpg → matugen → config.toml [theme] section → fr-rs reads on startup</code></pre>
+<pre><code>wallpaper.jpg → matugen → config.toml [theme] section → ase reads on startup</code></pre>
 
 <h2>JSON + jq</h2>
 
 <p>Use <code>--format=json</code> for structured output (one JSON object per line):</p>
 
 <pre><code># Count sessions per agent
-fr-rs --list --format=json | jq -s 'group_by(.agent) | map({agent: .[0].agent, count: length})'
+ase --list --format=json | jq -s 'group_by(.agent) | map({agent: .[0].agent, count: length})'
 
 # Find sessions with most turns
-fr-rs --list --format=json | jq -s 'sort_by(-.turns) | .[0:5]'
+ase --list --format=json | jq -s 'sort_by(-.turns) | .[0:5]'
 
 # Get directories of recent Claude sessions
-fr-rs --list --agent claude --format=json | jq -r '.directory' | head -10</code></pre>
+ase --list --agent claude --format=json | jq -r '.directory' | head -10</code></pre>
 
-<p><a href="https://github.com/rucnyz/rust-resume">GitHub</a></p>
+<p><a href="https://github.com/rucnyz/agents-sesame">GitHub</a></p>
 
 <script>
 function getPreferred() {

@@ -134,13 +134,13 @@ pub fn crush_projects_file() -> PathBuf {
 pub fn cache_dir() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| home_dir().join(".cache"))
-        .join("rust-resume")
+        .join("agents-sesame")
 }
 
 pub fn config_file() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| home_dir().join(".config"))
-        .join("rust-resume/config.toml")
+        .join("agents-sesame/config.toml")
 }
 
 pub fn index_dir() -> PathBuf {
@@ -175,7 +175,7 @@ pub struct AgentPathConfig {
 }
 
 impl AppConfig {
-    /// Load config from ~/.config/rust-resume/config.toml, returning defaults if missing.
+    /// Load config from ~/.config/agents-sesame/config.toml, returning defaults if missing.
     pub fn load() -> Self {
         let path = config_file();
         match fs::read_to_string(path) {

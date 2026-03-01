@@ -1,9 +1,9 @@
-# Television cable channel config for fr-rs
-# Copy to ~/.config/television/cable/fr-rs.toml
-# Then: tv fr-rs
+# Television cable channel config for ase
+# Copy to ~/.config/television/cable/ase.toml
+# Then: tv ase
 
 [[cable_channel]]
-name = "fr-rs"
-source_command = "fr-rs --list --format=tsv"
-preview_command = "fr-rs --preview {0}"
+name = "ase"
+source_command = "ase --list --format=tsv"
+preview_command = "ase --preview {0}"
 preview_delimiter = "\t"

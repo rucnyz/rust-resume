@@ -91,5 +91,5 @@ pub fn assets_dir() -> PathBuf {
 
     // Fallback: hardcoded path relative to project root
     let home = dirs::home_dir().unwrap_or_default();
-    home.join("src/rust-resume/assets")
+    home.join("src/agents-sesame/assets")
 }

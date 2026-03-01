@@ -15,6 +15,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
+name = "agents-sesame"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "clap_complete_nushell",
+ "crossterm",
+ "dirs",
+ "image",
+ "jieba-rs",
+ "ratatui",
+ "ratatui-image",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tantivy",
+ "tempfile",
+ "thiserror 2.0.18",
+ "toml",
+ "tui-scrollbar",
+ "unicode-width",
+ "walkdir",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2122,34 +2150,6 @@ dependencies = [
  "libsqlite3-sys",
  "smallvec",
  "sqlite-wasm-rs",
-]
-
-[[package]]
-name = "rust-resume"
-version = "0.1.1"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "clap_complete",
- "clap_complete_nushell",
- "crossterm",
- "dirs",
- "image",
- "jieba-rs",
- "ratatui",
- "ratatui-image",
- "regex",
- "rusqlite",
- "serde",
- "serde_json",
- "tantivy",
- "tempfile",
- "thiserror 2.0.18",
- "toml",
- "tui-scrollbar",
- "unicode-width",
- "walkdir",
 ]
 
 [[package]]

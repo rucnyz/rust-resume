@@ -1,10 +1,10 @@
 [package]
-name = "rust-resume"
+name = "agents-sesame"
 version = "0.1.1"
 edition = "2024"
 
 [[bin]]
-name = "fr-rs"
+name = "ase"
 path = "src/main.rs"
 
 [dependencies]

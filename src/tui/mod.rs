@@ -233,7 +233,7 @@ fn draw_title_bar(f: &mut ratatui::Frame, area: Rect, app: &App) {
     };
 
     let mut spans = vec![Span::styled(
-        " fr-rs ",
+        " ase ",
         Style::default()
             .fg(theme.primary)
             .add_modifier(Modifier::BOLD),

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Correctness test: compare fr (Python) vs fr-rs (Rust) session parsing
+# Correctness test: compare fr (Python) vs ase (Rust) session parsing
 set -uo pipefail
 
-FR_RS="${BASH_SOURCE[0]%/*}/../target/release/fr-rs"
+FR_RS="${BASH_SOURCE[0]%/*}/../target/release/ase"
 FR_PY_DIR="$HOME/src/fast-resume"
 PASS=0
 FAIL=0
@@ -17,7 +17,7 @@ result() {
     fi
 }
 
-echo "=== Correctness: fr (Python) vs fr-rs (Rust) ==="
+echo "=== Correctness: fr (Python) vs ase (Rust) ==="
 echo ""
 
 # Get Python Claude session IDs

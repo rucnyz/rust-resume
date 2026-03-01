@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Benchmark: fr-rs (Rust) vs fr (Python)
+# Benchmark: ase (Rust) vs fr (Python)
 set -euo pipefail
 
-FR_RS="${BASH_SOURCE[0]%/*}/../target/release/fr-rs"
+FR_RS="${BASH_SOURCE[0]%/*}/../target/release/ase"
 FR_PY="fr"
 
 if ! command -v hyperfine &>/dev/null; then
@@ -24,9 +24,9 @@ hyperfine --warmup 2 --min-runs 10 \
 echo ""
 echo "=== Cold index rebuild ==="
 hyperfine --warmup 0 --min-runs 3 \
-  --prepare "rm -rf ~/.cache/rust-resume/tantivy_index" \
+  --prepare "rm -rf ~/.cache/agents-sesame/tantivy_index" \
   "$FR_PY --rebuild --no-tui --list 2>/dev/null" \
-  --prepare "rm -rf ~/.cache/rust-resume/tantivy_index_rs" \
+  --prepare "rm -rf ~/.cache/agents-sesame/tantivy_index_rs" \
   "$FR_RS --rebuild --list 2>/dev/null"
 
 echo ""
