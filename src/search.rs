@@ -15,10 +15,14 @@ pub enum LoadingMsg {
     Done(Box<SessionSearch>),
 }
 
+const SEARCH_CACHE_CAPACITY: usize = 64;
+
 pub struct SessionSearch {
     adapters: Vec<Box<dyn AgentAdapter>>,
     sessions_by_id: HashMap<String, Session>,
     index: TantivyIndex,
+    /// Cache: query key → Tantivy results (id, score). Cleared on index update.
+    search_cache: HashMap<String, Vec<(String, f64)>>,
 }
 
 impl Default for SessionSearch {
@@ -68,6 +72,7 @@ impl SessionSearch {
             ],
             sessions_by_id: HashMap::new(),
             index: TantivyIndex::new(),
+            search_cache: HashMap::new(),
         }
     }
 
@@ -145,6 +150,7 @@ impl SessionSearch {
     }
 
     fn finalize_sessions(&mut self) -> Vec<Session> {
+        self.search_cache.clear();
         let mut sessions = self.index.get_all_sessions();
         for s in &sessions {
             self.sessions_by_id.insert(s.id.clone(), s.clone());
@@ -157,6 +163,21 @@ impl SessionSearch {
         sessions
     }
 
+    /// Build a cache key from search parameters.
+    fn cache_key(
+        query: &str,
+        agent_filter: Option<&str>,
+        directory_filter: Option<&str>,
+    ) -> String {
+        // Simple concatenation with separator that won't appear in values
+        format!(
+            "{}\0{}\0{}",
+            query,
+            agent_filter.unwrap_or(""),
+            directory_filter.unwrap_or("")
+        )
+    }
+
     /// Search sessions with query and filters.
     /// Returns sessions paired with their BM25 relevance scores.
     pub fn search(
@@ -166,6 +187,16 @@ impl SessionSearch {
         directory_filter: Option<&str>,
         limit: usize,
     ) -> Vec<(Session, f64)> {
+        let key = Self::cache_key(query, agent_filter, directory_filter);
+
+        // Check cache
+        if let Some(cached) = self.search_cache.get(&key) {
+            return cached
+                .iter()
+                .filter_map(|(id, score)| self.sessions_by_id.get(id).map(|s| (s.clone(), *score)))
+                .collect();
+        }
+
         let parsed = parse_query(query);
 
         let effective_agent = if let Some(agent) = agent_filter {
@@ -193,6 +224,12 @@ impl SessionSearch {
             parsed.date.as_ref(),
             limit,
         );
+
+        // Store in cache (evict all if full)
+        if self.search_cache.len() >= SEARCH_CACHE_CAPACITY {
+            self.search_cache.clear();
+        }
+        self.search_cache.insert(key, results.clone());
 
         results
             .into_iter()
