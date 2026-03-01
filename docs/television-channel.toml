@@ -2,8 +2,22 @@
 # Copy to ~/.config/television/cable/ase.toml
 # Then: tv ase
 
-[[cable_channel]]
+[metadata]
 name = "ase"
-source_command = "ase --list --format=tsv"
-preview_command = "ase --preview {0}"
-preview_delimiter = "\t"
+description = "Search and resume coding agent sessions"
+requirements = ["ase"]
+
+[source]
+command = "ase --list --format=tsv"
+output = "{split:\t:0}"
+
+[preview]
+command = "ase --preview '{split:\t:0}'"
+
+[keybindings]
+enter = "actions:resume"
+
+[actions.resume]
+description = "Resume the selected session"
+command = "ase --resume '{split:\t:0}'"
+mode = "execute"

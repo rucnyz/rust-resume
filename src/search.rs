@@ -138,6 +138,68 @@ impl SessionSearch {
         self.finalize_sessions()
     }
 
+    /// Stream sessions for CLI: emit cached sessions immediately, then new ones per adapter.
+    /// Unlike `get_all_sessions`, this calls `emit` after each batch so callers can
+    /// flush to stdout progressively (e.g. for television/fzf).
+    pub fn stream_sessions<F>(&mut self, force_refresh: bool, agent_hint: Option<&str>, mut emit: F)
+    where
+        F: FnMut(&[Session]),
+    {
+        // If fresh, just emit from index
+        if !force_refresh && self.index.is_fresh(5) {
+            let sessions = self.finalize_sessions();
+            emit(&sessions);
+            return;
+        }
+
+        let known = if force_refresh {
+            HashMap::new()
+        } else {
+            self.index.get_known_sessions()
+        };
+
+        if force_refresh {
+            self.index.clear();
+        }
+
+        // Emit cached sessions from index immediately (warm start)
+        if !known.is_empty() {
+            let cached = self.finalize_sessions();
+            emit(&cached);
+        }
+
+        // Select adapters to scan
+        let adapter_indices: Vec<usize> = match agent_hint {
+            Some(agent) => self
+                .adapters
+                .iter()
+                .enumerate()
+                .filter(|(_, a)| a.name() == agent)
+                .map(|(i, _)| i)
+                .collect(),
+            None => (0..self.adapters.len()).collect(),
+        };
+
+        for i in adapter_indices {
+            let (new_sessions, deleted) =
+                self.adapters[i].find_sessions_incremental(&known, &None, &None);
+            if !deleted.is_empty() {
+                self.index.delete_sessions(&deleted);
+            }
+            if !new_sessions.is_empty() {
+                emit(&new_sessions);
+                self.index.update_sessions(&new_sessions);
+            }
+        }
+
+        self.index.touch_scan_marker();
+        self.search_cache.clear();
+        let all = self.index.get_all_sessions();
+        for s in &all {
+            self.sessions_by_id.insert(s.id.clone(), s.clone());
+        }
+    }
+
     /// Progressive loading: send cached sessions first, then update after each adapter.
     pub fn load_progressive(
         &mut self,
