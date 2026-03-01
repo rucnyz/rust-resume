@@ -496,7 +496,7 @@ fn print_sessions_tsv(sessions: &[Session]) {
     let home_str = home.to_string_lossy();
     for s in sessions {
         let dir = s.directory.replace(&*home_str, "~");
-        let date = format_time_ago(s.timestamp);
+        let date = format_time_ago(s.timestamp, chrono::Local::now().naive_local());
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}",
             s.id, s.agent, s.title, dir, s.message_count, date

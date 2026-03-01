@@ -83,6 +83,8 @@ pub struct App {
     pub mouse_toggle_pending: bool,
     /// Total physical lines in preview content (set during render).
     pub preview_total_lines: usize,
+    /// Logical line index at top of preview viewport (for resize stability).
+    pub preview_top_logical_line: usize,
     /// tui-scrollbar interaction state for results list.
     pub results_sb_interaction: ScrollBarInteraction,
     /// tui-scrollbar interaction state for preview.
@@ -148,6 +150,7 @@ impl App {
             mouse_captured: true,
             mouse_toggle_pending: false,
             preview_total_lines: 0,
+            preview_top_logical_line: 0,
             results_sb_interaction: ScrollBarInteraction::new(),
             preview_sb_interaction: ScrollBarInteraction::new(),
             results_scrollbar: None,
@@ -231,9 +234,10 @@ impl App {
         self.agent_counts.clear();
         let scope = self.directory_scope;
         let dir = self.directory_filter.as_deref();
+        let dir_lower = dir.map(|d| d.to_lowercase());
         let mut total = 0;
         for s in &self.sessions {
-            if !Self::session_matches_scope(s, scope, dir) {
+            if !Self::session_matches_scope(s, scope, dir, dir_lower.as_deref()) {
                 continue;
             }
             *self.agent_counts.entry(s.agent.clone()).or_insert(0) += 1;
@@ -243,17 +247,29 @@ impl App {
     }
 
     /// Check if a session matches a directory scope.
-    fn session_matches_scope(session: &Session, scope: DirectoryScope, dir: Option<&str>) -> bool {
+    fn session_matches_scope(
+        session: &Session,
+        scope: DirectoryScope,
+        dir: Option<&str>,
+        dir_lower: Option<&str>,
+    ) -> bool {
         let Some(dir) = dir else {
             return true;
         };
         match scope {
             DirectoryScope::Global => true,
             DirectoryScope::Local => session.directory == dir,
-            DirectoryScope::Project => session
-                .directory
-                .to_lowercase()
-                .contains(&dir.to_lowercase()),
+            DirectoryScope::Project => {
+                // ASCII case-insensitive substring match (no allocation per session)
+                let filter = dir_lower.unwrap_or(dir);
+                filter.is_empty()
+                    || (session.directory.len() >= filter.len()
+                        && session
+                            .directory
+                            .as_bytes()
+                            .windows(filter.len())
+                            .any(|w| w.eq_ignore_ascii_case(filter.as_bytes())))
+            }
         }
     }
 
@@ -269,6 +285,7 @@ impl App {
         // Capture scope params to avoid borrow issues in closures
         let scope = self.directory_scope;
         let dir_filter = self.directory_filter.clone();
+        let dir_lower = dir_filter.as_deref().map(|d| d.to_lowercase());
 
         let has_query = !self.query.is_empty();
 
@@ -284,13 +301,29 @@ impl App {
         self.prev_query_empty = !has_query;
 
         if !has_query {
-            self.filtered = self.sessions.clone();
             self.search_scores.clear();
-            if let Some(ref agent) = self.agent_filter {
-                self.filtered.retain(|s| &s.agent == agent);
+            let agent = self.agent_filter.as_deref();
+            let no_filter = agent.is_none() && scope == DirectoryScope::Global;
+            if no_filter {
+                // No filters active: reuse allocation via clone_from
+                self.filtered.clone_from(&self.sessions);
+            } else {
+                // Single-pass filter: agent + scope combined
+                self.filtered = self
+                    .sessions
+                    .iter()
+                    .filter(|s| {
+                        (agent.is_none() || agent == Some(s.agent.as_str()))
+                            && Self::session_matches_scope(
+                                s,
+                                scope,
+                                dir_filter.as_deref(),
+                                dir_lower.as_deref(),
+                            )
+                    })
+                    .cloned()
+                    .collect();
             }
-            self.filtered
-                .retain(|s| Self::session_matches_scope(s, scope, dir_filter.as_deref()));
         } else {
             let scored_results = self.search_engine.search(
                 &self.query,
@@ -308,8 +341,14 @@ impl App {
                 .collect();
             // search engine uses "contains" — for Local mode, further filter to exact
             if scope == DirectoryScope::Local {
-                self.filtered
-                    .retain(|s| Self::session_matches_scope(s, scope, dir_filter.as_deref()));
+                self.filtered.retain(|s| {
+                    Self::session_matches_scope(
+                        s,
+                        scope,
+                        dir_filter.as_deref(),
+                        dir_lower.as_deref(),
+                    )
+                });
             }
         }
 
@@ -426,9 +465,6 @@ impl App {
                     }
                 }
                 Event::Resize(..) => {
-                    if !self.query.is_empty() {
-                        self.preview_auto_scroll = true;
-                    }
                     needs_redraw = true;
                 }
                 _ => {}

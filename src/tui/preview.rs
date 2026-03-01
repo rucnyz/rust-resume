@@ -7,7 +7,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Widget, Wrap};
 
 use super::theme::Theme;
-use super::utils::highlight_spans;
+use super::utils::{extract_highlight_terms, highlight_spans_with_terms};
 
 pub struct Preview<'a> {
     pub session: Option<&'a Session>,
@@ -22,6 +22,8 @@ pub struct Preview<'a> {
     pub total_lines: &'a mut usize,
     /// Output: the clamped scroll value actually used for rendering.
     pub rendered_scroll: &'a mut u16,
+    /// Logical line index at top of viewport (persisted across frames for resize stability).
+    pub top_logical_line: &'a mut usize,
     pub focused: bool,
     pub theme: &'a Theme,
 }
@@ -62,11 +64,14 @@ impl Widget for Preview<'_> {
             build_preview_lines(&preview_text, self.query, agent_color, agent_badge, theme);
 
         // Convert logical line indices to physical row positions (accounting for wrap)
+        // Also build line_starts for resize-stable scrolling
         let inner_width = block.inner(area).width as usize;
         let mut physical_row: usize = 0;
         let mut physical_badge_positions = Vec::new();
         let mut first_match_physical: Option<usize> = None;
+        let mut line_starts = Vec::with_capacity(lines.len());
         for (i, line) in lines.iter().enumerate() {
+            line_starts.push(physical_row);
             if badge_indices.contains(&i) {
                 physical_badge_positions.push(physical_row);
             }
@@ -77,6 +82,13 @@ impl Widget for Preview<'_> {
             physical_row += rows;
         }
         *self.badge_lines = physical_badge_positions;
+
+        // On resize (total lines changed), restore scroll to the same logical line
+        let old_total = *self.total_lines;
+        if !*self.auto_scroll && old_total > 0 && physical_row != old_total {
+            let top = (*self.top_logical_line).min(line_starts.len().saturating_sub(1));
+            *self.scroll = line_starts.get(top).copied().unwrap_or(0) as u16;
+        }
         *self.total_lines = physical_row;
 
         // Auto-scroll to first match BEFORE rendering (so first frame is correct)
@@ -93,6 +105,12 @@ impl Widget for Preview<'_> {
         let scroll = (*self.scroll).min(max_scroll);
         *self.scroll = scroll;
         *self.rendered_scroll = scroll;
+
+        // Update top_logical_line from final scroll position (binary search in line_starts)
+        *self.top_logical_line = match line_starts.binary_search(&(scroll as usize)) {
+            Ok(i) => i,
+            Err(i) => i.saturating_sub(1),
+        };
 
         let paragraph = Paragraph::new(lines)
             .block(block)
@@ -121,6 +139,7 @@ fn build_preview_lines(
     agent_badge: &str,
     theme: &Theme,
 ) -> (Vec<Line<'static>>, Vec<usize>, Option<usize>) {
+    let terms = extract_highlight_terms(query);
     let mut lines: Vec<Line<'static>> = Vec::new();
     let mut badge_indices: Vec<usize> = Vec::new();
     let mut first_match_line: Option<usize> = None;
@@ -178,7 +197,7 @@ fn build_preview_lines(
                         .fg(theme.secondary)
                         .add_modifier(Modifier::BOLD),
                 )];
-                let hl = highlight_spans(&content, query, theme.secondary);
+                let hl = highlight_spans_with_terms(&content, &terms, theme.secondary);
                 let has_match = hl.len() > 1;
                 spans.extend(hl);
                 lines.push(Line::from(spans));
@@ -211,7 +230,7 @@ fn build_preview_lines(
                                 .add_modifier(Modifier::BOLD),
                         ),
                     ];
-                    let hl = highlight_spans(content, query, theme.on_surface);
+                    let hl = highlight_spans_with_terms(content, &terms, theme.on_surface);
                     let has_match = hl.len() > 1;
                     spans.extend(hl);
                     lines.push(Line::from(spans));
@@ -220,14 +239,14 @@ fn build_preview_lines(
                     }
                     first_line = false;
                 } else {
-                    let spans = highlight_spans(line, query, theme.on_surface);
+                    let spans = highlight_spans_with_terms(line, &terms, theme.on_surface);
                     if spans.len() > 1 && first_match_line.is_none() {
                         first_match_line = Some(lines.len());
                     }
                     lines.push(Line::from(spans));
                 }
             } else if !line.is_empty() {
-                let spans = highlight_spans(line, query, theme.on_surface);
+                let spans = highlight_spans_with_terms(line, &terms, theme.on_surface);
                 if spans.len() > 1 && first_match_line.is_none() {
                     first_match_line = Some(lines.len());
                 }

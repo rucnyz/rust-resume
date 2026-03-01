@@ -11,8 +11,8 @@ use crate::session::Session;
 use super::app::{SortColumn, SortDirection};
 use super::theme::Theme;
 use super::utils::{
-    format_directory, format_time_ago, get_age_color, highlight_spans, pad_to_width,
-    truncate_to_width,
+    extract_highlight_terms, format_directory, format_time_ago, get_age_color,
+    highlight_spans_with_terms, pad_to_width, truncate_to_width,
 };
 
 pub struct ColumnWidths {
@@ -192,7 +192,7 @@ impl StatefulWidget for ResultsList<'_> {
             header_spans.push(header_label("Directory", SortColumn::Directory, cw.dir_w));
             header_spans.push(Span::raw(" "));
         }
-        header_spans.push(header_label("Trn", SortColumn::Turns, cw.turns_w));
+        header_spans.push(header_label("Turn", SortColumn::Turns, cw.turns_w));
         header_spans.push(Span::raw(" "));
         header_spans.push(header_label("Date", SortColumn::Date, cw.date_w));
 
@@ -205,8 +205,9 @@ impl StatefulWidget for ResultsList<'_> {
         };
         header_line.render(header_area, buf);
 
-        // Rows
+        // Rows — precompute terms and timestamp once
         let now = chrono::Local::now().naive_local();
+        let terms = extract_highlight_terms(self.query);
         for (i, session) in self
             .sessions
             .iter()
@@ -231,7 +232,7 @@ impl StatefulWidget for ResultsList<'_> {
             let date_color = get_age_color(age_hours);
 
             let title_display = truncate_to_width(&session.title, cw.title_w);
-            let date_display = format_time_ago(session.timestamp);
+            let date_display = format_time_ago(session.timestamp, now);
             let turns_display = if session.message_count > 0 {
                 format!("{}", session.message_count)
             } else {
@@ -249,7 +250,7 @@ impl StatefulWidget for ResultsList<'_> {
             ];
 
             // Title column with query highlighting
-            let title_spans = highlight_spans(&title_display, self.query, theme.on_surface);
+            let title_spans = highlight_spans_with_terms(&title_display, &terms, theme.on_surface);
             let title_used: usize = title_spans.iter().map(|s| s.content.width()).sum();
             row_spans.extend(title_spans);
             // Pad remaining width

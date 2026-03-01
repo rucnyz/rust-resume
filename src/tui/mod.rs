@@ -163,9 +163,6 @@ fn run_loop(
         let current_size = terminal.size()?;
         if current_size != last_size {
             last_size = current_size;
-            if !app.query.is_empty() {
-                app.preview_auto_scroll = true;
-            }
             needs_redraw = true;
         }
 
@@ -379,7 +376,6 @@ fn draw_content(f: &mut ratatui::Frame, area: Rect, app: &mut App) {
         let selected = app.filtered.get(app.results_state.selected);
 
         let mut badge_lines = Vec::new();
-        let mut total_lines: usize = 0;
         let mut rendered_scroll: u16 = 0;
         let preview = Preview {
             session: selected,
@@ -387,20 +383,18 @@ fn draw_content(f: &mut ratatui::Frame, area: Rect, app: &mut App) {
             auto_scroll: &mut app.preview_auto_scroll,
             query: &app.query,
             badge_lines: &mut badge_lines,
-            total_lines: &mut total_lines,
+            total_lines: &mut app.preview_total_lines,
             rendered_scroll: &mut rendered_scroll,
+            top_logical_line: &mut app.preview_top_logical_line,
             focused: app.focused_pane == FocusedPane::Preview,
             theme: &app.theme,
         };
         f.render_widget(preview, chunks[1]);
 
-        // Store total lines for scrollbar drag calculation
-        app.preview_total_lines = total_lines;
-
         let preview_visible = chunks[1].height.saturating_sub(2) as usize;
 
         // Preview scrollbar (tui-scrollbar with fractional thumb)
-        if total_lines > preview_visible {
+        if app.preview_total_lines > preview_visible {
             let sb_area = Rect {
                 x: chunks[1].x + chunks[1].width.saturating_sub(1),
                 y: chunks[1].y + 1,
@@ -408,7 +402,7 @@ fn draw_content(f: &mut ratatui::Frame, area: Rect, app: &mut App) {
                 height: chunks[1].height.saturating_sub(2),
             };
             let scrollbar = ScrollBar::vertical(ScrollLengths {
-                content_len: total_lines,
+                content_len: app.preview_total_lines,
                 viewport_len: preview_visible,
             })
             .offset(app.preview_scroll as usize)

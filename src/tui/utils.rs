@@ -5,8 +5,7 @@ use unicode_width::UnicodeWidthChar;
 use unicode_width::UnicodeWidthStr;
 
 /// Format a timestamp as a human-readable "time ago" string.
-pub fn format_time_ago(dt: NaiveDateTime) -> String {
-    let now = chrono::Local::now().naive_local();
+pub fn format_time_ago(dt: NaiveDateTime, now: NaiveDateTime) -> String {
     let duration = now.signed_duration_since(dt);
 
     let seconds = duration.num_seconds();
@@ -139,18 +138,9 @@ pub fn get_age_color(age_hours: f64) -> Color {
     }
 }
 
-/// Highlight query terms in text, returning owned Spans.
-pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'static>> {
-    let base_style = Style::default().fg(base_color);
-
-    if query.is_empty() || text.is_empty() {
-        return vec![Span::styled(text.to_string(), base_style)];
-    }
-
-    let highlight_style = base_style.add_modifier(Modifier::BOLD | Modifier::REVERSED);
-
-    // Extract only freetext terms (skip structured prefixes like agent:, dir:, date:, -agent:)
-    let terms: Vec<String> = query
+/// Extract lowercase query terms for highlighting (call once, reuse across rows).
+pub fn extract_highlight_terms(query: &str) -> Vec<String> {
+    query
         .split_whitespace()
         .filter(|t| {
             !t.starts_with("agent:")
@@ -159,31 +149,49 @@ pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'
                 && !t.starts_with("date:")
         })
         .map(|t| t.to_lowercase())
-        .collect();
+        .collect()
+}
 
-    if terms.is_empty() {
+/// Highlight query terms in text, returning owned Spans.
+/// `terms` should be precomputed via `extract_highlight_terms()`.
+pub fn highlight_spans_with_terms(
+    text: &str,
+    terms: &[String],
+    base_color: Color,
+) -> Vec<Span<'static>> {
+    let base_style = Style::default().fg(base_color);
+
+    if terms.is_empty() || text.is_empty() {
         return vec![Span::styled(text.to_string(), base_style)];
     }
 
-    let lower_text = text.to_lowercase();
+    let highlight_style = base_style.add_modifier(Modifier::BOLD | Modifier::REVERSED);
 
-    // Find all match positions
+    // Case-insensitive search using byte-level ASCII folding (no allocation per row)
+    let text_bytes = text.as_bytes();
     let mut matches: Vec<(usize, usize)> = Vec::new();
-    for term in &terms {
+    for term in terms {
+        let term_bytes = term.as_bytes();
+        if term_bytes.is_empty() || text_bytes.len() < term_bytes.len() {
+            continue;
+        }
         let mut start = 0;
-        while start < lower_text.len() {
-            let Some(pos) = lower_text[start..].find(term.as_str()) else {
-                break;
-            };
-            let abs_pos = start + pos;
-            let end = abs_pos + term.len();
-            matches.push((abs_pos, end));
-            start = abs_pos
-                + lower_text[abs_pos..]
+        while start + term_bytes.len() <= text_bytes.len() {
+            if text_bytes[start..start + term_bytes.len()].eq_ignore_ascii_case(term_bytes) {
+                matches.push((start, start + term_bytes.len()));
+                // Advance past current match start by one character
+                start += text[start..]
                     .chars()
                     .next()
                     .map(|c| c.len_utf8())
                     .unwrap_or(1);
+            } else {
+                start += text[start..]
+                    .chars()
+                    .next()
+                    .map(|c| c.len_utf8())
+                    .unwrap_or(1);
+            }
         }
     }
 
@@ -192,7 +200,7 @@ pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'
     }
 
     // Sort and merge overlapping
-    matches.sort_by_key(|m| m.0);
+    matches.sort_unstable_by_key(|m| m.0);
     let mut merged: Vec<(usize, usize)> = Vec::new();
     for m in matches {
         if let Some(last) = merged.last_mut()
@@ -205,7 +213,7 @@ pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'
     }
 
     // Build spans
-    let mut spans = Vec::new();
+    let mut spans = Vec::with_capacity(merged.len() * 2 + 1);
     let mut pos = 0;
     for (s, e) in merged {
         if s > pos {
@@ -219,6 +227,12 @@ pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'
     }
 
     spans
+}
+
+/// Convenience wrapper: highlight query terms in text (extracts terms on each call).
+pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'static>> {
+    let terms = extract_highlight_terms(query);
+    highlight_spans_with_terms(text, &terms, base_color)
 }
 
 /// Copy text to clipboard (cross-platform).
