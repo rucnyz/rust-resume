@@ -44,7 +44,12 @@ pub fn self_update() -> Result<()> {
 
     // Extract
     let status = Command::new("tar")
-        .args(["-xzf", &tar_path.to_string_lossy(), "-C", &tmpdir.to_string_lossy()])
+        .args([
+            "-xzf",
+            &tar_path.to_string_lossy(),
+            "-C",
+            &tmpdir.to_string_lossy(),
+        ])
         .status()
         .context("Failed to extract archive")?;
     if !status.success() {
@@ -56,7 +61,10 @@ pub fn self_update() -> Result<()> {
     let new_bin = tmpdir.join(&release_name).join(BINARY);
 
     if !new_bin.exists() {
-        bail!("Binary not found in release archive at {}", new_bin.display());
+        bail!(
+            "Binary not found in release archive at {}",
+            new_bin.display()
+        );
     }
 
     // Replace: rename old -> .bak, copy new, remove .bak
@@ -100,8 +108,8 @@ fn fetch_latest_version() -> Result<String> {
         bail!("Failed to fetch release info from GitHub");
     }
 
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .context("Failed to parse GitHub API response")?;
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).context("Failed to parse GitHub API response")?;
 
     let tag = json["tag_name"]
         .as_str()
@@ -120,7 +128,9 @@ fn detect_target() -> Result<String> {
         ("linux", "aarch64") => Ok("aarch64-unknown-linux-gnu".into()),
         ("macos", "x86_64") => Ok("x86_64-apple-darwin".into()),
         ("macos", "aarch64") => Ok("aarch64-apple-darwin".into()),
-        _ => bail!("No pre-built binary for {os}-{arch}. Build from source: cargo install --git https://github.com/{REPO}"),
+        _ => bail!(
+            "No pre-built binary for {os}-{arch}. Build from source: cargo install --git https://github.com/{REPO}"
+        ),
     }
 }
 

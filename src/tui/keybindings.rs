@@ -232,18 +232,40 @@ impl KeyBindings {
 
         vec![
             // Global
-            (Action::Quit, vec![k(KeyCode::Esc, none), k(KeyCode::Char('c'), ctrl), k(KeyCode::Char('q'), ctrl)]),
+            (
+                Action::Quit,
+                vec![
+                    k(KeyCode::Esc, none),
+                    k(KeyCode::Char('c'), ctrl),
+                    k(KeyCode::Char('q'), ctrl),
+                ],
+            ),
             (Action::ResumeSession, vec![k(KeyCode::Enter, none)]),
             (Action::TogglePreview, vec![k(KeyCode::Char('`'), ctrl)]),
-            (Action::TogglePreviewLayout, vec![k(KeyCode::Char('p'), ctrl)]),
+            (
+                Action::TogglePreviewLayout,
+                vec![k(KeyCode::Char('p'), ctrl)],
+            ),
             (Action::ToggleSort, vec![k(KeyCode::Char('s'), ctrl)]),
-            (Action::DeleteWordBackward, vec![k(KeyCode::Char('w'), ctrl), k(KeyCode::Backspace, ctrl)]),
+            (
+                Action::DeleteWordBackward,
+                vec![k(KeyCode::Char('w'), ctrl), k(KeyCode::Backspace, ctrl)],
+            ),
             (Action::ClearSearch, vec![k(KeyCode::Char('u'), ctrl)]),
-            (Action::ToggleMouseCapture, vec![k(KeyCode::Char('e'), ctrl)]),
+            (
+                Action::ToggleMouseCapture,
+                vec![k(KeyCode::Char('e'), ctrl)],
+            ),
             (Action::TogglePaneFocus, vec![k(KeyCode::Char('t'), ctrl)]),
-            (Action::CycleDirectoryScope, vec![k(KeyCode::Char('d'), ctrl)]),
+            (
+                Action::CycleDirectoryScope,
+                vec![k(KeyCode::Char('d'), ctrl)],
+            ),
             (Action::CycleAgentFilterForward, vec![k(KeyCode::Tab, none)]),
-            (Action::CycleAgentFilterBackward, vec![k(KeyCode::BackTab, none)]),
+            (
+                Action::CycleAgentFilterBackward,
+                vec![k(KeyCode::BackTab, none)],
+            ),
             // Results-focused
             (Action::NavigateDown, vec![k(KeyCode::Down, none)]),
             (Action::NavigateUp, vec![k(KeyCode::Up, none)]),
@@ -255,7 +277,10 @@ impl KeyBindings {
             (Action::CursorRight, vec![k(KeyCode::Right, none)]),
             (Action::CursorWordLeft, vec![k(KeyCode::Left, ctrl)]),
             (Action::CursorWordRight, vec![k(KeyCode::Right, ctrl)]),
-            (Action::DeleteCharBackward, vec![k(KeyCode::Backspace, none)]),
+            (
+                Action::DeleteCharBackward,
+                vec![k(KeyCode::Backspace, none)],
+            ),
             (Action::SwitchToPreview, vec![k(KeyCode::Char('`'), none)]),
             // Preview-focused
             (Action::ScrollPreviewDown, vec![k(KeyCode::Down, none)]),
@@ -264,7 +289,10 @@ impl KeyBindings {
             (Action::PagePreviewUp, vec![k(KeyCode::PageUp, none)]),
             (Action::ScrollPreviewToTop, vec![k(KeyCode::Home, none)]),
             (Action::ScrollPreviewToBottom, vec![k(KeyCode::End, none)]),
-            (Action::CopySessionContent, vec![k(KeyCode::Char('c'), none)]),
+            (
+                Action::CopySessionContent,
+                vec![k(KeyCode::Char('c'), none)],
+            ),
             (Action::SwitchToResults, vec![k(KeyCode::Char('`'), none)]),
             // Cross-pane shift
             (Action::ShiftDown, vec![k(KeyCode::Down, shift)]),
@@ -334,10 +362,7 @@ mod tests {
     fn user_override_replaces_defaults() {
         let mut user = HashMap::new();
         // Override quit to only use F1 ... well, "q" since we don't support F keys
-        user.insert(
-            "quit".to_string(),
-            KeyOrKeys::Single("q".to_string()),
-        );
+        user.insert("quit".to_string(), KeyOrKeys::Single("q".to_string()));
         let kb = KeyBindings::load(&user);
 
         // "q" should now have Quit

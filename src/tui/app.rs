@@ -485,8 +485,7 @@ impl App {
                 }
                 Action::ScrollPreviewToBottom if preview_focused => {
                     let visible = self.preview_area.height.saturating_sub(2) as usize;
-                    self.preview_scroll =
-                        self.preview_total_lines.saturating_sub(visible) as u16;
+                    self.preview_scroll = self.preview_total_lines.saturating_sub(visible) as u16;
                     handled = true;
                 }
                 Action::CopySessionContent if preview_focused => {
@@ -494,8 +493,7 @@ impl App {
                         if super::utils::copy_to_clipboard(&session.content) {
                             self.status_msg = Some("Copied to clipboard".to_string());
                         } else {
-                            self.status_msg =
-                                Some("Copy failed (no clipboard tool)".to_string());
+                            self.status_msg = Some("Copy failed (no clipboard tool)".to_string());
                         }
                     }
                     handled = true;
@@ -701,8 +699,10 @@ impl App {
                 let max_offset = self.filtered.len().saturating_sub(visible_rows);
                 let new_offset = offset.min(max_offset);
                 self.results_state.offset = new_offset;
-                self.results_state.selected =
-                    self.results_state.selected.clamp(new_offset, new_offset + visible_rows.saturating_sub(1));
+                self.results_state.selected = self
+                    .results_state
+                    .selected
+                    .clamp(new_offset, new_offset + visible_rows.saturating_sub(1));
                 self.preview_scroll = 0;
                 self.preview_auto_scroll = true;
                 return true;
