@@ -2,6 +2,11 @@
 name = "agents-sesame"
 version = "0.1.1"
 edition = "2024"
+description = "Fast fuzzy finder TUI for coding agent session history"
+license = "MIT"
+repository = "https://github.com/rucnyz/agents-sesame"
+keywords = ["cli", "tui", "agent", "session", "search"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "ase"
