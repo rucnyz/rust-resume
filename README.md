@@ -170,6 +170,8 @@ matugen image /path/to/wallpaper.jpg
 - HTTP server mode (optional feature)
 - MCP server mode
 - AI skills / tool-use integration
+- Auto-refresh (filesystem watch)
+- Session export (markdown / HTML)
 
 ## License
 
