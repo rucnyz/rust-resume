@@ -37,8 +37,14 @@
   nav { margin-bottom: 2rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
   nav a { margin-right: 1.5rem; text-decoration: none; }
   nav a:hover { text-decoration: underline; }
+  nav a.active { border-bottom: 2px solid var(--link); padding-bottom: 2px; }
   nav .brand { color: var(--accent); font-weight: bold; }
+  nav .brand.active { border-bottom: 2px solid var(--accent); }
   .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; margin-right: 4px; border: 1px solid var(--border); }
+  pre { position: relative; }
+  .copy-btn { position: absolute; top: 6px; right: 6px; background: var(--kbd-bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.8em; color: var(--fg); opacity: 0; transition: opacity 0.2s; }
+  pre:hover .copy-btn { opacity: 0.7; }
+  .copy-btn:hover { opacity: 1 !important; }
   .theme-toggle { position: fixed; top: 1rem; right: 1rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 1.2em; color: var(--fg); transition: background 0.2s; }
   .theme-toggle:hover { opacity: 0.8; }
 </style>
@@ -54,7 +60,7 @@
 <nav>
   <a href="index.html" class="brand">ase</a>
   <a href="integrations.html">Integrations</a>
-  <a href="theme.html">Theme</a>
+  <a href="theme.html" class="active">Theme</a>
 </nav>
 
 <h1>Material You Theme</h1>
@@ -161,6 +167,17 @@ function toggleTheme() {
 }
 applyTheme(getPreferred());
 hljs.highlightAll();
+document.querySelectorAll('pre').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = 'Copy';
+  btn.onclick = () => {
+    navigator.clipboard.writeText(pre.querySelector('code').textContent);
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  };
+  pre.appendChild(btn);
+});
 </script>
 </body>
 </html>
