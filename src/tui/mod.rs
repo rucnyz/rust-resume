@@ -40,7 +40,7 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
     if let Some(dir) = directory {
         app.directory_filter = Some(dir.to_string());
     }
-    app.load_sessions();
+    app.start_loading();
 
     let result = run_loop(&mut terminal, &mut app);
 
@@ -74,6 +74,7 @@ fn run_loop(
     app: &mut App,
 ) -> io::Result<()> {
     loop {
+        app.check_loading();
         terminal.draw(|f| draw(f, app))?;
 
         app.handle_events()?;
@@ -126,22 +127,28 @@ fn draw_title_bar(f: &mut ratatui::Frame, area: Rect, app: &App) {
         "relevance"
     };
 
-    let spans = vec![
-        Span::styled(
-            " fr-rs ",
-            Style::default()
-                .fg(Color::Rgb(232, 123, 53))
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
+    let mut spans = vec![Span::styled(
+        " fr-rs ",
+        Style::default()
+            .fg(Color::Rgb(232, 123, 53))
+            .add_modifier(Modifier::BOLD),
+    )];
+
+    if app.loading {
+        spans.push(Span::styled(
+            "  Loading sessions...",
+            Style::default().fg(Color::Yellow),
+        ));
+    } else {
+        spans.push(Span::styled(
             format!("  {count}/{total} sessions"),
             Style::default().fg(Color::DarkGray),
-        ),
-        Span::styled(
+        ));
+        spans.push(Span::styled(
             format!("  sort: {sort_label}"),
             Style::default().fg(Color::DarkGray),
-        ),
-    ];
+        ));
+    }
 
     if let Some(ref msg) = app.status_msg {
         let mut s = spans;

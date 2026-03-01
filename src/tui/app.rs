@@ -41,6 +41,10 @@ pub struct App {
     pub mouse_captured: bool,
     /// Set when mouse capture state changed, to apply in run_loop.
     pub mouse_toggle_pending: bool,
+    /// Whether sessions are still loading in background.
+    pub loading: bool,
+    /// Receiver for background session loading.
+    pub loading_rx: Option<std::sync::mpsc::Receiver<(SessionSearch, Vec<Session>)>>,
 }
 
 impl App {
@@ -71,14 +75,36 @@ impl App {
             icons: None,
             mouse_captured: true,
             mouse_toggle_pending: false,
+            loading: false,
+            loading_rx: None,
         }
     }
 
-    pub fn load_sessions(&mut self) {
-        self.sessions = self.search_engine.get_all_sessions(false);
-        self.total_count = self.sessions.len();
-        self.update_agent_counts();
-        self.apply_filter();
+    /// Start loading sessions in a background thread.
+    pub fn start_loading(&mut self) {
+        self.loading = true;
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut engine = SessionSearch::new();
+            let sessions = engine.get_all_sessions(false);
+            let _ = tx.send((engine, sessions));
+        });
+        self.loading_rx = Some(rx);
+    }
+
+    /// Check if background loading is done (non-blocking).
+    pub fn check_loading(&mut self) {
+        if let Some(ref rx) = self.loading_rx
+            && let Ok((engine, sessions)) = rx.try_recv()
+        {
+            self.search_engine = engine;
+            self.sessions = sessions;
+            self.total_count = self.sessions.len();
+            self.update_agent_counts();
+            self.apply_filter();
+            self.loading = false;
+            self.loading_rx = None;
+        }
     }
 
     fn update_agent_counts(&mut self) {

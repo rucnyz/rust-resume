@@ -24,7 +24,13 @@ hyperfine --warmup 2 --min-runs 10 \
 echo ""
 echo "=== Cold index rebuild ==="
 hyperfine --warmup 0 --min-runs 3 \
-  --prepare "rm -rf ~/.cache/fast-resume/tantivy_index" \
+  --prepare "rm -rf ~/.cache/rust-resume/tantivy_index" \
   "$FR_PY --rebuild --no-tui --list 2>/dev/null" \
-  --prepare "rm -rf ~/.cache/fast-resume/tantivy_index_rs" \
+  --prepare "rm -rf ~/.cache/rust-resume/tantivy_index_rs" \
   "$FR_RS --rebuild --list 2>/dev/null"
+
+echo ""
+echo "=== TUI startup + quit ==="
+hyperfine --warmup 1 --min-runs 5 \
+  "echo -ne '\x1b' | $FR_PY 2>/dev/null || true" \
+  "echo -ne '\x1b' | $FR_RS 2>/dev/null || true"

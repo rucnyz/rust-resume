@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rust-resume (fr-rs)</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+  h1 { color: #e87b35; }
+  h2 { color: #58a6ff; border-bottom: 1px solid #21262d; padding-bottom: 0.3em; }
+  code { background: #161b22; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #161b22; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; }
+  th { background: #161b22; }
+  kbd { background: #21262d; border: 1px solid #30363d; border-radius: 3px; padding: 2px 6px; font-size: 0.85em; }
+  a { color: #58a6ff; }
+</style>
+</head>
+<body>
+
+<h1>rust-resume (fr-rs)</h1>
+<p>Fast fuzzy finder TUI for coding agent session history. Search and resume sessions across 10 coding agents.</p>
+
+<h2>Install</h2>
+<pre><code>curl -fsSL https://rucnyz.github.io/rust-resume/install.sh | bash</code></pre>
+<p>Or build from source:</p>
+<pre><code>cargo install --git https://github.com/rucnyz/rust-resume</code></pre>
+
+<h2>Supported Agents</h2>
+<p>Claude Code, Codex CLI, GitHub Copilot CLI, Copilot VSCode, Crush, Gemini CLI, Kimi CLI, OpenCode, Qwen Code, Vibe</p>
+
+<h2>Keybindings</h2>
+
+<h3>Navigation</h3>
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><kbd>↑</kbd> / <kbd>k</kbd></td><td>Move up</td></tr>
+<tr><td><kbd>↓</kbd> / <kbd>j</kbd></td><td>Move down</td></tr>
+<tr><td><kbd>PgUp</kbd> / <kbd>PgDn</kbd></td><td>Page up / down in results</td></tr>
+<tr><td><kbd>Ctrl+U</kbd> / <kbd>Ctrl+D</kbd></td><td>Scroll preview up / down</td></tr>
+<tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>Jump to first / last result</td></tr>
+</table>
+
+<h3>Actions</h3>
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><kbd>Enter</kbd></td><td>Resume selected session</td></tr>
+<tr><td><kbd>c</kbd></td><td>Copy resume command to clipboard</td></tr>
+<tr><td><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd></td><td>Cycle agent filter</td></tr>
+<tr><td><kbd>Ctrl+S</kbd></td><td>Toggle sort (relevance / time)</td></tr>
+<tr><td><kbd>Ctrl+`</kbd></td><td>Toggle preview panel</td></tr>
+<tr><td><kbd>Ctrl+P</kbd></td><td>Toggle preview layout (bottom / right)</td></tr>
+<tr><td><kbd>Ctrl+E</kbd></td><td>Toggle mouse capture (on = scroll/click, off = select text)</td></tr>
+<tr><td><kbd>Esc</kbd> / <kbd>Ctrl+C</kbd></td><td>Quit</td></tr>
+</table>
+
+<h3>Search Input</h3>
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><kbd>Ctrl+A</kbd></td><td>Move cursor to start</td></tr>
+<tr><td><kbd>Ctrl+K</kbd></td><td>Delete to end of line</td></tr>
+<tr><td><kbd>Ctrl+W</kbd></td><td>Delete word backward</td></tr>
+<tr><td><kbd>Backspace</kbd></td><td>Delete character</td></tr>
+</table>
+
+<h3>Search Syntax</h3>
+<table>
+<tr><th>Prefix</th><th>Example</th><th>Meaning</th></tr>
+<tr><td><code>agent:</code></td><td><code>agent:claude</code></td><td>Filter by agent</td></tr>
+<tr><td><code>-agent:</code></td><td><code>-agent:opencode</code></td><td>Exclude agent</td></tr>
+<tr><td><code>dir:</code></td><td><code>dir:rust-resume</code></td><td>Filter by directory</td></tr>
+<tr><td><code>date:</code></td><td><code>date:today</code>, <code>date:3d</code>, <code>date:1w</code></td><td>Filter by time range</td></tr>
+</table>
+
+<h2>CLI Flags</h2>
+<pre><code>fr-rs                          # Open TUI
+fr-rs --list                   # List sessions to stdout
+fr-rs --list 'niri'            # Search and list
+fr-rs --agent claude --list    # Filter by agent
+fr-rs --rebuild --list         # Force rebuild index
+fr-rs --stats                  # Show index stats</code></pre>
+
+<p><a href="https://github.com/rucnyz/rust-resume">GitHub</a></p>
+</body>
+</html>
