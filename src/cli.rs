@@ -452,42 +452,6 @@ fn list_sessions(cli: &Cli) -> anyhow::Result<()> {
     let start = std::time::Instant::now();
     let mut engine = SessionSearch::new();
 
-    // Streaming TSV: emit sessions progressively for television/fzf
-    let is_plain_tsv = cli.format == "tsv" && !cli.ids && cli.query.is_none();
-    if is_plain_tsv {
-        use std::io::Write;
-        let home = dirs::home_dir().unwrap_or_default();
-        let home_str = home.to_string_lossy().to_string();
-        let agent_filter = cli.agent.clone();
-        let dir_filter = cli.directory.as_ref().map(|d| d.to_lowercase());
-        let mut stdout = std::io::stdout().lock();
-        engine.stream_sessions(cli.rebuild, cli.agent.as_deref(), |sessions| {
-            let now = chrono::Local::now().naive_local();
-            for s in sessions {
-                if let Some(ref agent) = agent_filter
-                    && s.agent != *agent
-                {
-                    continue;
-                }
-                if let Some(ref df) = dir_filter
-                    && !s.directory.to_lowercase().contains(df.as_str())
-                {
-                    continue;
-                }
-                let dir = s.directory.replace(&home_str, "~");
-                let date = format_time_ago(s.timestamp, now);
-                let _ = writeln!(
-                    stdout,
-                    "{}\t{}\t{}\t{}\t{}\t{}",
-                    s.id, s.agent, s.title, dir, s.message_count, date
-                );
-            }
-            let _ = stdout.flush();
-        });
-        return Ok(());
-    }
-
-    // Batch path: collect all sessions first (for table, json, ids, or query)
     let sessions = engine.get_all_sessions(cli.rebuild, cli.agent.as_deref());
 
     // If there's a query, use full-text search
