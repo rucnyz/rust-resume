@@ -7,12 +7,18 @@ use ratatui::widgets::{Block, Borders, Paragraph, Widget, Wrap};
 use crate::config;
 use crate::session::Session;
 
+use super::utils::highlight_spans;
+
 pub struct Preview<'a> {
     pub session: Option<&'a Session>,
     pub scroll: u16,
     pub query: &'a str,
     /// Output: physical row positions (pre-scroll, accounting for wrap) for icon overlay.
     pub badge_lines: &'a mut Vec<usize>,
+    /// Output: total physical rows (for scrollbar).
+    pub total_lines: &'a mut usize,
+    /// Output: physical row of first query match (for auto-scroll).
+    pub first_match_row: &'a mut Option<usize>,
 }
 
 impl Widget for Preview<'_> {
@@ -41,16 +47,20 @@ impl Widget for Preview<'_> {
         let preview_text = extract_preview_content(&session.content, self.query);
 
         // Build lines from content
-        let (lines, badge_indices) =
+        let (lines, badge_indices, first_match_logical) =
             build_preview_lines(&preview_text, self.query, agent_color, agent_badge);
 
-        // Convert logical badge indices to physical row positions (accounting for wrap)
+        // Convert logical line indices to physical row positions (accounting for wrap)
         let inner_width = block.inner(area).width as usize;
         let mut physical_row: usize = 0;
         let mut physical_badge_positions = Vec::new();
+        let mut first_match_physical: Option<usize> = None;
         for (i, line) in lines.iter().enumerate() {
             if badge_indices.contains(&i) {
                 physical_badge_positions.push(physical_row);
+            }
+            if first_match_logical == Some(i) {
+                first_match_physical = Some(physical_row);
             }
             let line_width = line.width();
             let rows = if line_width == 0 || inner_width == 0 {
@@ -61,6 +71,8 @@ impl Widget for Preview<'_> {
             physical_row += rows;
         }
         *self.badge_lines = physical_badge_positions;
+        *self.total_lines = physical_row;
+        *self.first_match_row = first_match_physical;
 
         let paragraph = Paragraph::new(lines)
             .block(block)
@@ -79,16 +91,18 @@ fn extract_preview_content(content: &str, _query: &str) -> String {
 }
 
 /// Build styled lines from preview text, matching Python's _render_message logic.
-/// Returns (lines, badge_line_indices) where badge_line_indices are the line numbers
-/// of assistant first-lines (for icon overlay).
+/// Returns (lines, badge_line_indices, first_match_line) where badge_line_indices are the line numbers
+/// of assistant first-lines (for icon overlay), and first_match_line is the logical line index
+/// of the first highlighted match.
 fn build_preview_lines(
     text: &str,
     query: &str,
     agent_color: Color,
     agent_badge: &str,
-) -> (Vec<Line<'static>>, Vec<usize>) {
+) -> (Vec<Line<'static>>, Vec<usize>, Option<usize>) {
     let mut lines: Vec<Line<'static>> = Vec::new();
     let mut badge_indices: Vec<usize> = Vec::new();
+    let mut first_match_line: Option<usize> = None;
     let messages = text.split("\n\n");
 
     for msg in messages {
@@ -140,8 +154,13 @@ fn build_preview_lines(
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 )];
-                spans.extend(highlight_spans(&content, query, Color::Cyan));
+                let hl = highlight_spans(&content, query, Color::Cyan);
+                let has_match = hl.len() > 1;
+                spans.extend(hl);
                 lines.push(Line::from(spans));
+                if has_match && first_match_line.is_none() {
+                    first_match_line = Some(lines.len() - 1);
+                }
                 first_line = false;
             } else if line == "..." {
                 lines.push(Line::from(Span::styled(
@@ -168,15 +187,26 @@ fn build_preview_lines(
                                 .add_modifier(Modifier::BOLD),
                         ),
                     ];
-                    spans.extend(highlight_spans(content, query, Color::White));
+                    let hl = highlight_spans(content, query, Color::White);
+                    let has_match = hl.len() > 1;
+                    spans.extend(hl);
                     lines.push(Line::from(spans));
+                    if has_match && first_match_line.is_none() {
+                        first_match_line = Some(lines.len() - 1);
+                    }
                     first_line = false;
                 } else {
                     let spans = highlight_spans(line, query, Color::White);
+                    if spans.len() > 1 && first_match_line.is_none() {
+                        first_match_line = Some(lines.len());
+                    }
                     lines.push(Line::from(spans));
                 }
             } else if !line.is_empty() {
                 let spans = highlight_spans(line, query, Color::White);
+                if spans.len() > 1 && first_match_line.is_none() {
+                    first_match_line = Some(lines.len());
+                }
                 lines.push(Line::from(spans));
             }
 
@@ -187,78 +217,7 @@ fn build_preview_lines(
         lines.push(Line::from(""));
     }
 
-    (lines, badge_indices)
-}
-
-/// Highlight query terms in text, returning owned Spans.
-fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'static>> {
-    let base_style = Style::default().fg(base_color);
-
-    if query.is_empty() || text.is_empty() {
-        return vec![Span::styled(text.to_string(), base_style)];
-    }
-
-    let highlight_style = base_style.add_modifier(Modifier::BOLD | Modifier::REVERSED);
-    let lower_text = text.to_lowercase();
-    let terms: Vec<String> = query.split_whitespace().map(|t| t.to_lowercase()).collect();
-
-    if terms.is_empty() {
-        return vec![Span::styled(text.to_string(), base_style)];
-    }
-
-    // Find all match positions (byte indices, safe because lowercase preserves boundaries for CJK)
-    let mut matches: Vec<(usize, usize)> = Vec::new();
-    for term in &terms {
-        let mut start = 0;
-        while start < lower_text.len() {
-            let Some(pos) = lower_text[start..].find(term.as_str()) else {
-                break;
-            };
-            let abs_pos = start + pos;
-            let end = abs_pos + term.len();
-            matches.push((abs_pos, end));
-            // Advance past match start by one full character
-            start = abs_pos
-                + lower_text[abs_pos..]
-                    .chars()
-                    .next()
-                    .map(|c| c.len_utf8())
-                    .unwrap_or(1);
-        }
-    }
-
-    if matches.is_empty() {
-        return vec![Span::styled(text.to_string(), base_style)];
-    }
-
-    // Sort and merge overlapping
-    matches.sort_by_key(|m| m.0);
-    let mut merged: Vec<(usize, usize)> = Vec::new();
-    for m in matches {
-        if let Some(last) = merged.last_mut()
-            && m.0 <= last.1
-        {
-            last.1 = last.1.max(m.1);
-            continue;
-        }
-        merged.push(m);
-    }
-
-    // Build spans
-    let mut spans = Vec::new();
-    let mut pos = 0;
-    for (s, e) in merged {
-        if s > pos {
-            spans.push(Span::styled(text[pos..s].to_string(), base_style));
-        }
-        spans.push(Span::styled(text[s..e].to_string(), highlight_style));
-        pos = e;
-    }
-    if pos < text.len() {
-        spans.push(Span::styled(text[pos..].to_string(), base_style));
-    }
-
-    spans
+    (lines, badge_indices, first_match_line)
 }
 
 fn parse_hex_color(hex: &str) -> Color {

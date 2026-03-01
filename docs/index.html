@@ -5,20 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>rust-resume (fr-rs)</title>
 <style>
-  body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
-  h1 { color: #e87b35; }
-  h2 { color: #58a6ff; border-bottom: 1px solid #21262d; padding-bottom: 0.3em; }
-  code { background: #161b22; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-  pre { background: #161b22; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  :root {
+    --bg: #0d1117; --fg: #c9d1d9; --accent: #e87b35; --link: #58a6ff;
+    --code-bg: #161b22; --border: #30363d; --th-bg: #161b22; --kbd-bg: #21262d;
+    --h2-border: #21262d;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --fg: #24292f; --accent: #d35400; --link: #0969da;
+    --code-bg: #f6f8fa; --border: #d0d7de; --th-bg: #f6f8fa; --kbd-bg: #eff1f3;
+    --h2-border: #d0d7de;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #ffffff; --fg: #24292f; --accent: #d35400; --link: #0969da;
+      --code-bg: #f6f8fa; --border: #d0d7de; --th-bg: #f6f8fa; --kbd-bg: #eff1f3;
+      --h2-border: #d0d7de;
+    }
+  }
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; background: var(--bg); color: var(--fg); line-height: 1.6; transition: background 0.2s, color 0.2s; }
+  h1 { color: var(--accent); }
+  h2 { color: var(--link); border-bottom: 1px solid var(--h2-border); padding-bottom: 0.3em; }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; }
   pre code { background: none; padding: 0; }
   table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; }
-  th { background: #161b22; }
-  kbd { background: #21262d; border: 1px solid #30363d; border-radius: 3px; padding: 2px 6px; font-size: 0.85em; }
-  a { color: #58a6ff; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  th { background: var(--th-bg); }
+  kbd { background: var(--kbd-bg); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; font-size: 0.85em; }
+  a { color: var(--link); }
+  .theme-toggle { position: fixed; top: 1rem; right: 1rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 1.2em; color: var(--fg); transition: background 0.2s; }
+  .theme-toggle:hover { opacity: 0.8; }
 </style>
 </head>
 <body>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" aria-label="Toggle theme">
+  <span id="theme-icon"></span>
+</button>
 
 <h1>rust-resume (fr-rs)</h1>
 <p>Fast fuzzy finder TUI for coding agent session history. Search and resume sessions across 10 coding agents.</p>
@@ -83,5 +106,24 @@ fr-rs --rebuild --list         # Force rebuild index
 fr-rs --stats                  # Show index stats</code></pre>
 
 <p><a href="https://github.com/rucnyz/rust-resume">GitHub</a></p>
+
+<script>
+function getPreferred() {
+  const saved = localStorage.getItem('theme');
+  if (saved) return saved;
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-icon').textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || getPreferred();
+  const next = current === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('theme', next);
+  applyTheme(next);
+}
+applyTheme(getPreferred());
+</script>
 </body>
 </html>

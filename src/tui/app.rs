@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use ratatui::layout::Rect;
+use tui_scrollbar::{ScrollBar, ScrollBarInteraction, ScrollCommand};
 
-use crate::search::SessionSearch;
+use crate::search::{LoadingMsg, SessionSearch};
 use crate::session::Session;
 
 use super::icons::IconManager;
@@ -41,10 +43,26 @@ pub struct App {
     pub mouse_captured: bool,
     /// Set when mouse capture state changed, to apply in run_loop.
     pub mouse_toggle_pending: bool,
+    /// Total physical lines in preview content (set during render).
+    pub preview_total_lines: usize,
+    /// tui-scrollbar interaction state for results list.
+    pub results_sb_interaction: ScrollBarInteraction,
+    /// tui-scrollbar interaction state for preview.
+    pub preview_sb_interaction: ScrollBarInteraction,
+    /// Current results scrollbar widget (set during render for mouse events).
+    pub results_scrollbar: Option<ScrollBar>,
+    /// Current preview scrollbar widget (set during render for mouse events).
+    pub preview_scrollbar: Option<ScrollBar>,
+    /// Scrollbar area for results (set during render).
+    pub results_sb_area: Rect,
+    /// Scrollbar area for preview (set during render).
+    pub preview_sb_area: Rect,
+    /// Whether preview should auto-scroll to first match on next render.
+    pub preview_auto_scroll: bool,
     /// Whether sessions are still loading in background.
     pub loading: bool,
-    /// Receiver for background session loading.
-    pub loading_rx: Option<std::sync::mpsc::Receiver<(SessionSearch, Vec<Session>)>>,
+    /// Receiver for progressive background session loading.
+    pub loading_rx: Option<std::sync::mpsc::Receiver<LoadingMsg>>,
 }
 
 impl App {
@@ -75,35 +93,67 @@ impl App {
             icons: None,
             mouse_captured: true,
             mouse_toggle_pending: false,
+            preview_total_lines: 0,
+            results_sb_interaction: ScrollBarInteraction::new(),
+            preview_sb_interaction: ScrollBarInteraction::new(),
+            results_scrollbar: None,
+            preview_scrollbar: None,
+            results_sb_area: Rect::default(),
+            preview_sb_area: Rect::default(),
+            preview_auto_scroll: false,
             loading: false,
             loading_rx: None,
         }
     }
 
-    /// Start loading sessions in a background thread.
+    /// Start loading sessions in a background thread (progressive).
     pub fn start_loading(&mut self) {
         self.loading = true;
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let mut engine = SessionSearch::new();
-            let sessions = engine.get_all_sessions(false);
-            let _ = tx.send((engine, sessions));
+            engine.load_progressive(false, &tx);
+            let _ = tx.send(LoadingMsg::Done(Box::new(engine)));
         });
         self.loading_rx = Some(rx);
     }
 
-    /// Check if background loading is done (non-blocking).
+    /// Check for progressive loading updates (non-blocking, drains all available).
     pub fn check_loading(&mut self) {
-        if let Some(ref rx) = self.loading_rx
-            && let Ok((engine, sessions)) = rx.try_recv()
-        {
+        if self.loading_rx.is_none() {
+            return;
+        }
+
+        let mut got_update = false;
+        let mut done_engine: Option<SessionSearch> = None;
+
+        // Drain all available messages
+        loop {
+            let msg = self.loading_rx.as_ref().unwrap().try_recv();
+            match msg {
+                Ok(LoadingMsg::Sessions(sessions)) => {
+                    self.sessions = sessions;
+                    self.total_count = self.sessions.len();
+                    self.update_agent_counts();
+                    got_update = true;
+                }
+                Ok(LoadingMsg::Done(engine)) => {
+                    done_engine = Some(*engine);
+                    got_update = true;
+                    break;
+                }
+                Err(_) => break,
+            }
+        }
+
+        if let Some(engine) = done_engine {
             self.search_engine = engine;
-            self.sessions = sessions;
-            self.total_count = self.sessions.len();
-            self.update_agent_counts();
-            self.apply_filter();
             self.loading = false;
             self.loading_rx = None;
+        }
+
+        if got_update {
+            self.apply_filter();
         }
     }
 
@@ -140,6 +190,7 @@ impl App {
         self.last_search_time = Some(start.elapsed());
         self.results_state.select_first();
         self.preview_scroll = 0;
+        self.preview_auto_scroll = true;
         self.search_dirty = false;
     }
 
@@ -210,18 +261,22 @@ impl App {
             KeyCode::Down => {
                 self.results_state.select_next(self.filtered.len());
                 self.preview_scroll = 0;
+                self.preview_auto_scroll = true;
             }
             KeyCode::Up => {
                 self.results_state.select_prev();
                 self.preview_scroll = 0;
+                self.preview_auto_scroll = true;
             }
             KeyCode::PageDown => {
                 self.results_state.page_down(10, self.filtered.len());
                 self.preview_scroll = 0;
+                self.preview_auto_scroll = true;
             }
             KeyCode::PageUp => {
                 self.results_state.page_up(10);
                 self.preview_scroll = 0;
+                self.preview_auto_scroll = true;
             }
 
             // Tab: cycle agent filter
@@ -252,6 +307,12 @@ impl App {
                     self.cursor_pos = prev;
                     self.search_dirty = true;
                 }
+            }
+            KeyCode::Left if ctrl => {
+                self.cursor_pos = self.word_boundary_left();
+            }
+            KeyCode::Right if ctrl => {
+                self.cursor_pos = self.word_boundary_right();
             }
             KeyCode::Left => {
                 if self.cursor_pos > 0 {
@@ -288,6 +349,12 @@ impl App {
     }
 
     fn handle_mouse(&mut self, mouse: MouseEvent) {
+        // Delegate to tui-scrollbar for scrollbar interactions (drag, click, wheel)
+        let handled = self.handle_scrollbar_mouse(mouse);
+        if handled {
+            return;
+        }
+
         match mouse.kind {
             MouseEventKind::Down(crossterm::event::MouseButton::Left) => {
                 let area = self.results_area;
@@ -304,6 +371,7 @@ impl App {
                     if new_selected < self.filtered.len() {
                         self.results_state.selected = new_selected;
                         self.preview_scroll = 0;
+                        self.preview_auto_scroll = true;
                     }
                 }
             }
@@ -313,6 +381,7 @@ impl App {
                 } else {
                     self.results_state.select_next(self.filtered.len());
                     self.preview_scroll = 0;
+                    self.preview_auto_scroll = true;
                 }
             }
             MouseEventKind::ScrollUp => {
@@ -321,14 +390,79 @@ impl App {
                 } else {
                     self.results_state.select_prev();
                     self.preview_scroll = 0;
+                    self.preview_auto_scroll = true;
                 }
             }
             _ => {}
         }
     }
 
+    /// Delegate mouse events to tui-scrollbar widgets. Returns true if handled.
+    fn handle_scrollbar_mouse(&mut self, mouse: MouseEvent) -> bool {
+        // Try results scrollbar
+        if let Some(ref sb) = self.results_scrollbar.clone() {
+            let area = self.results_sb_area;
+            if let Some(ScrollCommand::SetOffset(offset)) =
+                sb.handle_mouse_event(area, mouse, &mut self.results_sb_interaction)
+            {
+                let visible_rows = self.results_area.height.saturating_sub(3) as usize;
+                let max_offset = self.filtered.len().saturating_sub(visible_rows);
+                let new_offset = offset.min(max_offset);
+                self.results_state.offset = new_offset;
+                self.results_state.selected =
+                    self.results_state.selected.clamp(new_offset, new_offset + visible_rows.saturating_sub(1));
+                self.preview_scroll = 0;
+                self.preview_auto_scroll = true;
+                return true;
+            }
+        }
+
+        // Try preview scrollbar
+        if let Some(ref sb) = self.preview_scrollbar.clone() {
+            let area = self.preview_sb_area;
+            if let Some(ScrollCommand::SetOffset(offset)) =
+                sb.handle_mouse_event(area, mouse, &mut self.preview_sb_interaction)
+            {
+                self.preview_scroll = offset as u16;
+                return true;
+            }
+        }
+
+        false
+    }
+
     fn is_in_area(&self, x: u16, y: u16, area: ratatui::layout::Rect) -> bool {
         x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height
+    }
+
+    fn word_boundary_left(&self) -> usize {
+        if self.cursor_pos == 0 {
+            return 0;
+        }
+        let text = &self.query[..self.cursor_pos];
+        // Skip trailing whitespace, then skip word chars
+        let trimmed = text.trim_end();
+        if trimmed.is_empty() {
+            return 0;
+        }
+        trimmed
+            .rfind(|c: char| c.is_whitespace())
+            .map(|i| i + 1)
+            .unwrap_or(0)
+    }
+
+    fn word_boundary_right(&self) -> usize {
+        if self.cursor_pos >= self.query.len() {
+            return self.query.len();
+        }
+        let text = &self.query[self.cursor_pos..];
+        // Skip leading whitespace, then skip word chars
+        let after_space = text.trim_start();
+        let space_len = text.len() - after_space.len();
+        let word_end = after_space
+            .find(|c: char| c.is_whitespace())
+            .unwrap_or(after_space.len());
+        self.cursor_pos + space_len + word_end
     }
 
     fn delete_word_backward(&mut self) {

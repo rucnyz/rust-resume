@@ -10,6 +10,11 @@ use crate::index::TantivyIndex;
 use crate::query::{Filter, parse_query};
 use crate::session::Session;
 
+pub enum LoadingMsg {
+    Sessions(Vec<Session>),
+    Done(Box<SessionSearch>),
+}
+
 pub struct SessionSearch {
     adapters: Vec<Box<dyn AgentAdapter>>,
     sessions_by_id: HashMap<String, Session>,
@@ -95,7 +100,51 @@ impl SessionSearch {
             self.index.update_sessions(&all_new);
         }
 
-        // Load from index
+        self.finalize_sessions()
+    }
+
+    /// Progressive loading: send cached sessions first, then update after each adapter.
+    pub fn load_progressive(
+        &mut self,
+        force_refresh: bool,
+        tx: &std::sync::mpsc::Sender<LoadingMsg>,
+    ) {
+        let known = if force_refresh {
+            HashMap::new()
+        } else {
+            self.index.get_known_sessions()
+        };
+
+        if force_refresh {
+            self.index.clear();
+        }
+
+        // Send cached sessions from index immediately (warm start)
+        if !known.is_empty() {
+            let cached = self.finalize_sessions();
+            let _ = tx.send(LoadingMsg::Sessions(cached));
+        }
+
+        // Process each adapter and send updates
+        let adapter_count = self.adapters.len();
+        for i in 0..adapter_count {
+            let (new_sessions, deleted) =
+                self.adapters[i].find_sessions_incremental(&known, &None, &None);
+            let has_changes = !new_sessions.is_empty() || !deleted.is_empty();
+            if !deleted.is_empty() {
+                self.index.delete_sessions(&deleted);
+            }
+            if !new_sessions.is_empty() {
+                self.index.update_sessions(&new_sessions);
+            }
+            if has_changes {
+                let updated = self.finalize_sessions();
+                let _ = tx.send(LoadingMsg::Sessions(updated));
+            }
+        }
+    }
+
+    fn finalize_sessions(&mut self) -> Vec<Session> {
         let mut sessions = self.index.get_all_sessions();
         for s in &sessions {
             self.sessions_by_id.insert(s.id.clone(), s.clone());

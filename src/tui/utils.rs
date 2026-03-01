@@ -1,5 +1,6 @@
 use chrono::NaiveDateTime;
-use ratatui::style::Color;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::Span;
 use unicode_width::UnicodeWidthChar;
 use unicode_width::UnicodeWidthStr;
 
@@ -136,6 +137,88 @@ pub fn get_age_color(age_hours: f64) -> Color {
     } else {
         Color::Rgb(140, 140, 140) // gray
     }
+}
+
+/// Highlight query terms in text, returning owned Spans.
+pub fn highlight_spans(text: &str, query: &str, base_color: Color) -> Vec<Span<'static>> {
+    let base_style = Style::default().fg(base_color);
+
+    if query.is_empty() || text.is_empty() {
+        return vec![Span::styled(text.to_string(), base_style)];
+    }
+
+    let highlight_style = base_style.add_modifier(Modifier::BOLD | Modifier::REVERSED);
+
+    // Extract only freetext terms (skip structured prefixes like agent:, dir:, date:, -agent:)
+    let terms: Vec<String> = query
+        .split_whitespace()
+        .filter(|t| {
+            !t.starts_with("agent:")
+                && !t.starts_with("-agent:")
+                && !t.starts_with("dir:")
+                && !t.starts_with("date:")
+        })
+        .map(|t| t.to_lowercase())
+        .collect();
+
+    if terms.is_empty() {
+        return vec![Span::styled(text.to_string(), base_style)];
+    }
+
+    let lower_text = text.to_lowercase();
+
+    // Find all match positions
+    let mut matches: Vec<(usize, usize)> = Vec::new();
+    for term in &terms {
+        let mut start = 0;
+        while start < lower_text.len() {
+            let Some(pos) = lower_text[start..].find(term.as_str()) else {
+                break;
+            };
+            let abs_pos = start + pos;
+            let end = abs_pos + term.len();
+            matches.push((abs_pos, end));
+            start = abs_pos
+                + lower_text[abs_pos..]
+                    .chars()
+                    .next()
+                    .map(|c| c.len_utf8())
+                    .unwrap_or(1);
+        }
+    }
+
+    if matches.is_empty() {
+        return vec![Span::styled(text.to_string(), base_style)];
+    }
+
+    // Sort and merge overlapping
+    matches.sort_by_key(|m| m.0);
+    let mut merged: Vec<(usize, usize)> = Vec::new();
+    for m in matches {
+        if let Some(last) = merged.last_mut()
+            && m.0 <= last.1
+        {
+            last.1 = last.1.max(m.1);
+            continue;
+        }
+        merged.push(m);
+    }
+
+    // Build spans
+    let mut spans = Vec::new();
+    let mut pos = 0;
+    for (s, e) in merged {
+        if s > pos {
+            spans.push(Span::styled(text[pos..s].to_string(), base_style));
+        }
+        spans.push(Span::styled(text[s..e].to_string(), highlight_style));
+        pos = e;
+    }
+    if pos < text.len() {
+        spans.push(Span::styled(text[pos..].to_string(), base_style));
+    }
+
+    spans
 }
 
 /// Copy text to clipboard (Linux: wl-copy or xclip).

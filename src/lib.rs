@@ -8,5 +8,6 @@ pub mod session;
 
 mod cli;
 mod tui;
+mod update;
 
 pub use cli::run;

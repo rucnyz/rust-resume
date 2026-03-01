@@ -3,17 +3,18 @@ use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
+use unicode_width::UnicodeWidthStr;
 
 use crate::config;
 use crate::session::Session;
 
 use super::utils::{
-    format_directory, format_time_ago, get_age_color, pad_to_width, truncate_to_width,
+    format_directory, format_time_ago, get_age_color, highlight_spans, pad_to_width,
+    truncate_to_width,
 };
 
 pub struct ResultsList<'a> {
     pub sessions: &'a [Session],
-    #[allow(dead_code)]
     pub query: &'a str,
 }
 
@@ -183,12 +184,17 @@ impl StatefulWidget for ResultsList<'_> {
                     Style::default().fg(agent_color),
                 ),
                 Span::raw(" "),
-                Span::styled(
-                    pad_to_width(&title_display, title_w),
-                    Style::default().fg(Color::White),
-                ),
-                Span::raw(" "),
             ];
+
+            // Title column with query highlighting
+            let title_spans = highlight_spans(&title_display, self.query, Color::White);
+            let title_used: usize = title_spans.iter().map(|s| s.content.width()).sum();
+            row_spans.extend(title_spans);
+            // Pad remaining width
+            if title_used < title_w {
+                row_spans.push(Span::raw(" ".repeat(title_w - title_used)));
+            }
+            row_spans.push(Span::raw(" "));
 
             if show_dir {
                 let dir_display = format_directory(&session.directory, dir_w);

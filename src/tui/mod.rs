@@ -18,6 +18,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
+use tui_scrollbar::{ScrollBar, ScrollLengths};
 
 use app::App;
 use filter_bar::FilterBar;
@@ -59,9 +60,16 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
     if let Some(session) = app.resume_session {
         let cmd = app.search_engine.get_resume_command(&session, app.yolo);
         if !cmd.is_empty() {
-            let status = std::process::Command::new(&cmd[0])
-                .args(&cmd[1..])
-                .status()?;
+            let mut command = std::process::Command::new(&cmd[0]);
+            command.args(&cmd[1..]);
+            // cd into session directory so agents like Claude Code work correctly
+            if !session.directory.is_empty() {
+                let dir = std::path::Path::new(&session.directory);
+                if dir.is_dir() {
+                    command.current_dir(dir);
+                }
+            }
+            let status = command.status()?;
             std::process::exit(status.code().unwrap_or(1));
         }
     }
@@ -245,13 +253,51 @@ fn draw_content(f: &mut ratatui::Frame, area: Rect, app: &mut App) {
         let selected = app.filtered.get(app.results_state.selected);
 
         let mut badge_lines = Vec::new();
+        let mut total_lines: usize = 0;
+        let mut first_match_row: Option<usize> = None;
         let preview = Preview {
             session: selected,
             scroll: app.preview_scroll,
             query: &app.query,
             badge_lines: &mut badge_lines,
+            total_lines: &mut total_lines,
+            first_match_row: &mut first_match_row,
         };
         f.render_widget(preview, chunks[1]);
+
+        // Store total lines for scrollbar drag calculation
+        app.preview_total_lines = total_lines;
+
+        // Auto-scroll to first match if needed
+        let preview_visible = chunks[1].height.saturating_sub(2) as usize;
+        if app.preview_auto_scroll {
+            app.preview_auto_scroll = false;
+            if let Some(match_row) = first_match_row {
+                // Scroll so the match is ~3 lines from the top
+                app.preview_scroll = match_row.saturating_sub(3) as u16;
+            }
+        }
+
+        // Preview scrollbar (tui-scrollbar with fractional thumb)
+        if total_lines > preview_visible {
+            let sb_area = Rect {
+                x: chunks[1].x + chunks[1].width.saturating_sub(1),
+                y: chunks[1].y + 1,
+                width: 1,
+                height: chunks[1].height.saturating_sub(2),
+            };
+            let scrollbar = ScrollBar::vertical(ScrollLengths {
+                content_len: total_lines,
+                viewport_len: preview_visible,
+            })
+            .offset(app.preview_scroll as usize)
+            .thumb_style(Style::default().fg(Color::DarkGray));
+            f.render_widget(&scrollbar, sb_area);
+            app.preview_scrollbar = Some(scrollbar);
+            app.preview_sb_area = sb_area;
+        } else {
+            app.preview_scrollbar = None;
+        }
 
         // Overlay agent icons on preview badge lines
         if let Some(session) = selected {
@@ -268,6 +314,28 @@ fn draw_content(f: &mut ratatui::Frame, area: Rect, app: &mut App) {
             query: &app.query,
         };
         f.render_stateful_widget(results, area, &mut app.results_state);
+    }
+
+    // Results list scrollbar (tui-scrollbar with fractional thumb)
+    let results_visible = results_area.height.saturating_sub(3) as usize; // borders + header
+    if app.filtered.len() > results_visible {
+        let sb_area = Rect {
+            x: results_area.x + results_area.width.saturating_sub(1),
+            y: results_area.y + 1,
+            width: 1,
+            height: results_area.height.saturating_sub(2),
+        };
+        let scrollbar = ScrollBar::vertical(ScrollLengths {
+            content_len: app.filtered.len(),
+            viewport_len: results_visible,
+        })
+        .offset(app.results_state.offset)
+        .thumb_style(Style::default().fg(Color::DarkGray));
+        f.render_widget(&scrollbar, sb_area);
+        app.results_scrollbar = Some(scrollbar);
+        app.results_sb_area = sb_area;
+    } else {
+        app.results_scrollbar = None;
     }
 
     // Render agent icons overlay on results list rows

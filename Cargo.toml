@@ -25,6 +25,7 @@ rusqlite = { version = "0.38", features = ["bundled"] }
 ratatui-image = { version = "10.0.6", default-features = false, features = ["crossterm", "image-defaults"] }
 image = "0.25.9"
 toml = "1"
+tui-scrollbar = { version = "0.2.2", features = ["crossterm_0_29"] }
 
 [features]
 default = []

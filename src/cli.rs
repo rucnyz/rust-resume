@@ -5,7 +5,8 @@ use crate::search::SessionSearch;
 #[derive(Parser)]
 #[command(
     name = "fr-rs",
-    about = "Fast fuzzy finder for coding agent session history"
+    about = "Fast fuzzy finder for coding agent session history",
+    version
 )]
 pub struct Cli {
     /// Search query
@@ -42,10 +43,18 @@ pub struct Cli {
     /// Output only session IDs (for testing/scripting)
     #[arg(long, hide = true)]
     pub ids: bool,
+
+    /// Update fr-rs to the latest version
+    #[arg(long)]
+    pub update: bool,
 }
 
 pub fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
+
+    if cli.update {
+        return crate::update::self_update();
+    }
 
     if cli.ids || cli.no_tui || cli.list_only {
         list_sessions(&cli)?;
