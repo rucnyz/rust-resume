@@ -29,6 +29,7 @@
   code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
   pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; }
   pre code { background: none; padding: 0; }
+  pre code.hljs { background: transparent; padding: 0; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
   th { background: var(--th-bg); }
@@ -41,6 +42,8 @@
   .theme-toggle { position: fixed; top: 1rem; right: 1rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 1.2em; color: var(--fg); transition: background 0.2s; }
   .theme-toggle:hover { opacity: 0.8; }
 </style>
+<link rel="stylesheet" id="hljs-theme" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
 </head>
 <body>
 
@@ -110,7 +113,7 @@
 
 <h2>Example Config</h2>
 
-<pre><code>[theme]
+<pre><code class="language-toml">[theme]
 primary = "#E87B35"
 on_surface = "#FFFFFF"
 on_surface_variant = "#808080"
@@ -146,6 +149,9 @@ function getPreferred() {
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('theme-icon').textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  document.getElementById('hljs-theme').href = t === 'dark'
+    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css'
+    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css';
 }
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || getPreferred();
@@ -154,6 +160,7 @@ function toggleTheme() {
   applyTheme(next);
 }
 applyTheme(getPreferred());
+hljs.highlightAll();
 </script>
 </body>
 </html>

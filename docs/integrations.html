@@ -29,6 +29,7 @@
   code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
   pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; }
   pre code { background: none; padding: 0; }
+  pre code.hljs { background: transparent; padding: 0; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
   th { background: var(--th-bg); }
@@ -42,6 +43,8 @@
   .step { margin: 0.5rem 0; padding-left: 1.5rem; }
   .step::before { content: attr(data-n) ". "; font-weight: bold; color: var(--accent); margin-left: -1.5rem; }
 </style>
+<link rel="stylesheet" id="hljs-theme" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
 </head>
 <body>
 
@@ -62,7 +65,7 @@
 
 <p>Pipe session list into fzf with preview and resume-on-enter:</p>
 
-<pre><code>ase --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
+<pre><code class="language-bash">ase --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
   --preview='ase --preview {1}' \
   --bind='enter:become(ase --resume {1})'</code></pre>
 
@@ -76,7 +79,7 @@
 </table>
 
 <p>Add to your shell config as a function or alias:</p>
-<pre><code># fish
+<pre><code class="language-bash"># fish
 function frs
   ase --list --format=tsv | fzf --delimiter='\t' --with-nth=2,3,4,5,6 \
     --preview='ase --preview {1}' \
@@ -97,14 +100,14 @@ frs() {
 <h3>Setup</h3>
 
 <p class="step" data-n="1">Save the following as <code>~/.config/television/cable/ase.toml</code> (<a href="https://github.com/rucnyz/agents-sesame/blob/main/docs/television-channel.toml">source</a>):</p>
-<pre><code>[[cable_channel]]
+<pre><code class="language-toml">[[cable_channel]]
 name = "ase"
 source_command = "ase --list --format=tsv"
 preview_command = "ase --preview {0}"
 preview_delimiter = "\t"</code></pre>
 
 <p class="step" data-n="2">Launch:</p>
-<pre><code>tv ase</code></pre>
+<pre><code class="language-bash">tv ase</code></pre>
 
 <h2 id="matugen">matugen</h2>
 
@@ -113,7 +116,7 @@ preview_delimiter = "\t"</code></pre>
 <h3>Setup</h3>
 
 <p class="step" data-n="1">Save the following as <code>~/.config/matugen/templates/ase.toml</code> (<a href="https://github.com/rucnyz/agents-sesame/blob/main/docs/matugen-template.toml">source</a>):</p>
-<pre><code>[theme]
+<pre><code class="language-toml">[theme]
 primary = "{{colors.primary.default.hex}}"
 on_surface = "{{colors.on_surface.default.hex}}"
 on_surface_variant = "{{colors.on_surface_variant.default.hex}}"
@@ -125,23 +128,23 @@ primary_container = "{{colors.primary_container.default.hex}}"
 error = "{{colors.error.default.hex}}"</code></pre>
 
 <p class="step" data-n="2">Add to your matugen config (<code>~/.config/matugen/config.toml</code>):</p>
-<pre><code>[templates.ase]
+<pre><code class="language-toml">[templates.ase]
 input_path = "~/.config/matugen/templates/ase.toml"
 output_path = "~/.config/agents-sesame/config.toml"</code></pre>
 
 <p class="step" data-n="3">Generate theme from a wallpaper:</p>
-<pre><code>matugen image /path/to/wallpaper.jpg</code></pre>
+<pre><code class="language-bash">matugen image /path/to/wallpaper.jpg</code></pre>
 
 <p>This writes a <code>[theme]</code> section to <code>~/.config/agents-sesame/config.toml</code>. ase picks it up on next launch. See the <a href="theme.html">Theme</a> page for color role details.</p>
 
 <h3>Pipeline</h3>
-<pre><code>wallpaper.jpg → matugen → config.toml [theme] section → ase reads on startup</code></pre>
+<pre><code class="language-plaintext">wallpaper.jpg → matugen → config.toml [theme] section → ase reads on startup</code></pre>
 
 <h2>JSON + jq</h2>
 
 <p>Use <code>--format=json</code> for structured output (one JSON object per line):</p>
 
-<pre><code># Count sessions per agent
+<pre><code class="language-bash"># Count sessions per agent
 ase --list --format=json | jq -s 'group_by(.agent) | map({agent: .[0].agent, count: length})'
 
 # Find sessions with most turns
@@ -161,6 +164,9 @@ function getPreferred() {
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('theme-icon').textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  document.getElementById('hljs-theme').href = t === 'dark'
+    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css'
+    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css';
 }
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || getPreferred();
@@ -169,6 +175,7 @@ function toggleTheme() {
   applyTheme(next);
 }
 applyTheme(getPreferred());
+hljs.highlightAll();
 </script>
 </body>
 </html>

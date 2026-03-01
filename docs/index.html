@@ -28,6 +28,7 @@
   code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
   pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; }
   pre code { background: none; padding: 0; }
+  pre code.hljs { background: transparent; padding: 0; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
   th { background: var(--th-bg); }
@@ -40,6 +41,8 @@
   .theme-toggle { position: fixed; top: 1rem; right: 1rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 1.2em; color: var(--fg); transition: background 0.2s; }
   .theme-toggle:hover { opacity: 0.8; }
 </style>
+<link rel="stylesheet" id="hljs-theme" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
 </head>
 <body>
 
@@ -57,11 +60,11 @@
 <p>Fast fuzzy finder TUI for coding agent session history. Search and resume sessions across 10 coding agents.</p>
 
 <h2>Install</h2>
-<pre><code>curl -fsSL https://rucnyz.github.io/agents-sesame/install.sh | bash</code></pre>
+<pre><code class="language-bash">curl -fsSL https://rucnyz.github.io/agents-sesame/install.sh | bash</code></pre>
 <p>Or via crates.io:</p>
-<pre><code>cargo install agents-sesame</code></pre>
+<pre><code class="language-bash">cargo install agents-sesame</code></pre>
 <p>Or from source (latest dev):</p>
-<pre><code>cargo install --git https://github.com/rucnyz/agents-sesame</code></pre>
+<pre><code class="language-bash">cargo install --git https://github.com/rucnyz/agents-sesame</code></pre>
 
 <h2>Supported Agents</h2>
 <p>Claude Code, Codex CLI, GitHub Copilot CLI, Copilot VSCode, Crush, Gemini CLI, Kimi CLI, OpenCode, Qwen Code, Vibe</p>
@@ -121,7 +124,7 @@
 </table>
 
 <h2>CLI</h2>
-<pre><code># TUI
+<pre><code class="language-bash"># TUI
 ase                          # Open TUI
 ase -d /path/to/project      # Open TUI scoped to directory
 
@@ -147,12 +150,12 @@ ase uninstall                # Remove shell integration</code></pre>
 
 <h2>Shell Integration</h2>
 <p>Set up <kbd>Alt+G</kbd> keybinding and tab completions:</p>
-<pre><code>ase init               # auto-detect shell, writes to config
+<pre><code class="language-bash">ase init               # auto-detect shell, writes to config
 ase init fish          # explicit shell</code></pre>
 
 <h2>Configuration</h2>
 <p>Optional config at <code>~/.config/agents-sesame/config.toml</code>. All keybindings are configurable:</p>
-<pre><code>[keybindings]
+<pre><code class="language-toml">[keybindings]
 quit = ["esc", "ctrl+c", "ctrl+q"]
 toggle_sort = "ctrl+s"
 copy_session_content = "y"</code></pre>
@@ -174,6 +177,9 @@ function getPreferred() {
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   document.getElementById('theme-icon').textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  document.getElementById('hljs-theme').href = t === 'dark'
+    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark-dimmed.min.css'
+    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css';
 }
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || getPreferred();
@@ -182,6 +188,7 @@ function toggleTheme() {
   applyTheme(next);
 }
 applyTheme(getPreferred());
+hljs.highlightAll();
 </script>
 </body>
 </html>
