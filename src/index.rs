@@ -15,7 +15,7 @@ use crate::config;
 use crate::query::{DateFilter, DateOp, Filter};
 use crate::session::Session;
 
-const SCHEMA_VERSION: u32 = 21; // Bumped for Rust version
+const SCHEMA_VERSION: u32 = 22; // Fast fields for metadata
 const LOCK_FILE: &str = ".tantivy-writer.lock";
 const WRITER_MEMORY: usize = 50_000_000; // 50MB
 const SCAN_MARKER: &str = ".last_scan";
@@ -45,13 +45,15 @@ impl Default for TantivyIndex {
 
 impl TantivyIndex {
     pub fn new() -> Self {
-        let index_path = config::index_dir();
+        Self::new_with_path(config::index_dir())
+    }
 
+    pub fn new_with_path(index_path: PathBuf) -> Self {
         let mut builder = Schema::builder();
-        let f_id = builder.add_text_field("id", STRING | STORED);
-        let f_title = builder.add_text_field("title", TEXT | STORED);
-        let f_directory = builder.add_text_field("directory", STRING | STORED);
-        let f_agent = builder.add_text_field("agent", STRING | STORED);
+        let f_id = builder.add_text_field("id", (STRING | STORED).set_fast(None));
+        let f_title = builder.add_text_field("title", (TEXT | STORED).set_fast(None));
+        let f_directory = builder.add_text_field("directory", (STRING | STORED).set_fast(None));
+        let f_agent = builder.add_text_field("agent", (STRING | STORED).set_fast(None));
         let f_content = builder.add_text_field("content", TEXT | STORED);
         let f_timestamp = builder.add_f64_field(
             "timestamp",
@@ -60,9 +62,17 @@ impl TantivyIndex {
                 .set_stored()
                 .set_fast(),
         );
-        let f_message_count = builder.add_i64_field("message_count", STORED | INDEXED);
-        let f_mtime = builder.add_f64_field("mtime", STORED);
-        let f_yolo = builder.add_bool_field("yolo", STORED);
+        let f_message_count = builder.add_i64_field(
+            "message_count",
+            NumericOptions::default()
+                .set_stored()
+                .set_indexed()
+                .set_fast(),
+        );
+        let f_mtime =
+            builder.add_f64_field("mtime", NumericOptions::default().set_stored().set_fast());
+        let f_yolo =
+            builder.add_bool_field("yolo", NumericOptions::default().set_stored().set_fast());
         let schema = builder.build();
 
         let mut idx = TantivyIndex {
@@ -195,6 +205,7 @@ impl TantivyIndex {
         )
     }
 
+    #[allow(dead_code)]
     fn doc_to_session(&self, doc: &tantivy::TantivyDocument) -> Option<Session> {
         let id = doc.get_first(self.f_id)?.as_str()?.to_string();
         let title = doc.get_first(self.f_title)?.as_str()?.to_string();
@@ -220,44 +231,148 @@ impl TantivyIndex {
         })
     }
 
-    /// Get known sessions: id -> (mtime, agent)
+    /// Read a string fast field value for a doc_id.
+    fn read_str(col: &tantivy::columnar::StrColumn, doc_id: u32, buf: &mut String) -> Option<()> {
+        let ord = col.ords().first(doc_id)?;
+        buf.clear();
+        col.ord_to_str(ord, buf).ok()?;
+        Some(())
+    }
+
+    /// Get known sessions: id -> (mtime, agent) using fast fields.
     pub fn get_known_sessions(&self) -> HashMap<String, (f64, String)> {
         let searcher = self.searcher();
         let mut known = HashMap::new();
+        let mut buf = String::new();
 
-        let all_docs = TopDocs::with_limit(1_000_000);
-        if let Ok(results) = searcher.search(&AllQuery, &all_docs) {
-            for (_score, addr) in results {
-                if let Ok(doc) = searcher.doc::<tantivy::TantivyDocument>(addr)
-                    && let (Some(id), Some(mtime), Some(agent)) = (
-                        doc.get_first(self.f_id).and_then(|v| v.as_str()),
-                        doc.get_first(self.f_mtime).and_then(|v| v.as_f64()),
-                        doc.get_first(self.f_agent).and_then(|v| v.as_str()),
-                    )
-                {
-                    known.insert(id.to_string(), (mtime, agent.to_string()));
+        for segment_reader in searcher.segment_readers() {
+            let ff = segment_reader.fast_fields();
+            let (Ok(Some(id_col)), Ok(Some(agent_col)), Ok(mtime_col)) =
+                (ff.str("id"), ff.str("agent"), ff.f64("mtime"))
+            else {
+                continue;
+            };
+
+            for doc_id in segment_reader.doc_ids_alive() {
+                if Self::read_str(&id_col, doc_id, &mut buf).is_none() {
+                    continue;
                 }
+                let id = buf.clone();
+
+                if Self::read_str(&agent_col, doc_id, &mut buf).is_none() {
+                    continue;
+                }
+                let agent = buf.clone();
+
+                let Some(mtime) = mtime_col.first(doc_id) else {
+                    continue;
+                };
+
+                known.insert(id, (mtime, agent));
             }
         }
         known
     }
 
-    /// Get all sessions from the index.
+    /// Get all sessions metadata from the index using fast fields.
+    /// Content is NOT loaded (set to empty string) for performance.
     pub fn get_all_sessions(&self) -> Vec<Session> {
         let searcher = self.searcher();
         let mut sessions = Vec::new();
+        let mut buf = String::new();
 
-        let all_docs = TopDocs::with_limit(1_000_000);
-        if let Ok(results) = searcher.search(&AllQuery, &all_docs) {
-            for (_score, addr) in results {
-                if let Ok(doc) = searcher.doc::<tantivy::TantivyDocument>(addr)
-                    && let Some(session) = self.doc_to_session(&doc)
-                {
-                    sessions.push(session);
+        for segment_reader in searcher.segment_readers() {
+            let ff = segment_reader.fast_fields();
+            let (
+                Ok(Some(id_col)),
+                Ok(Some(title_col)),
+                Ok(Some(dir_col)),
+                Ok(Some(agent_col)),
+                Ok(ts_col),
+                Ok(msg_col),
+                Ok(mtime_col),
+                Ok(yolo_col),
+            ) = (
+                ff.str("id"),
+                ff.str("title"),
+                ff.str("directory"),
+                ff.str("agent"),
+                ff.f64("timestamp"),
+                ff.i64("message_count"),
+                ff.f64("mtime"),
+                ff.bool("yolo"),
+            )
+            else {
+                continue;
+            };
+
+            for doc_id in segment_reader.doc_ids_alive() {
+                if Self::read_str(&id_col, doc_id, &mut buf).is_none() {
+                    continue;
                 }
+                let id = buf.clone();
+
+                if Self::read_str(&title_col, doc_id, &mut buf).is_none() {
+                    continue;
+                }
+                let title = buf.clone();
+
+                if Self::read_str(&dir_col, doc_id, &mut buf).is_none() {
+                    continue;
+                }
+                let directory = buf.clone();
+
+                if Self::read_str(&agent_col, doc_id, &mut buf).is_none() {
+                    continue;
+                }
+                let agent = buf.clone();
+
+                let Some(timestamp_f) = ts_col.first(doc_id) else {
+                    continue;
+                };
+                let Some(message_count) = msg_col.first(doc_id) else {
+                    continue;
+                };
+                let Some(mtime) = mtime_col.first(doc_id) else {
+                    continue;
+                };
+                let yolo = yolo_col.first(doc_id).unwrap_or(false);
+
+                let Some(timestamp) =
+                    DateTime::from_timestamp(timestamp_f as i64, 0).map(|dt| dt.naive_utc())
+                else {
+                    continue;
+                };
+
+                sessions.push(Session {
+                    id,
+                    agent,
+                    title,
+                    directory,
+                    timestamp,
+                    content: String::new(),
+                    message_count: message_count as usize,
+                    mtime,
+                    yolo,
+                });
             }
         }
         sessions
+    }
+
+    /// Load content for a single session by ID (from stored fields).
+    pub fn get_session_content(&self, id: &str) -> Option<String> {
+        let searcher = self.searcher();
+        let query = TermQuery::new(
+            Term::from_field_text(self.f_id, id),
+            IndexRecordOption::Basic,
+        );
+        let results = searcher.search(&query, &TopDocs::with_limit(1)).ok()?;
+        let (_, addr) = results.into_iter().next()?;
+        let doc = searcher.doc::<tantivy::TantivyDocument>(addr).ok()?;
+        doc.get_first(self.f_content)?
+            .as_str()
+            .map(|s| s.to_string())
     }
 
     /// Add sessions to the index.
@@ -589,6 +704,7 @@ impl TantivyIndex {
         if let Some(mut writer) = self.acquire_writer() {
             writer.delete_all_documents().ok();
             let _ = writer.commit();
+            self.reload_reader();
         }
     }
 }

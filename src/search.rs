@@ -361,6 +361,23 @@ impl SessionSearch {
         self.sessions_by_id.get(id)
     }
 
+    /// Load content for a session if not already loaded.
+    /// Returns true if content was loaded (or already present).
+    pub fn ensure_session_content(&mut self, id: &str) -> bool {
+        if let Some(session) = self.sessions_by_id.get(id)
+            && !session.content.is_empty()
+        {
+            return true;
+        }
+        if let Some(content) = self.index.get_session_content(id)
+            && let Some(session) = self.sessions_by_id.get_mut(id)
+        {
+            session.content = content;
+            return true;
+        }
+        false
+    }
+
     /// Get the resume command for a session.
     pub fn get_resume_command(&self, session: &Session, yolo: bool) -> Vec<String> {
         for adapter in &self.adapters {

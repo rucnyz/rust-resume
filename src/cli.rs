@@ -422,6 +422,7 @@ fn install_tv_channel() -> anyhow::Result<()> {
 fn preview_session(id: &str) -> anyhow::Result<()> {
     let mut engine = SessionSearch::new();
     engine.get_all_sessions(false, None);
+    engine.ensure_session_content(id);
     let session = engine
         .get_session_by_id(id)
         .ok_or_else(|| anyhow::anyhow!("Session not found: {id}"))?;

@@ -373,6 +373,28 @@ fn draw_content(f: &mut ratatui::Frame, area: Rect, app: &mut App) {
         };
         f.render_stateful_widget(results, chunks[0], &mut app.results_state);
 
+        // Lazy-load content for preview if needed (fast fields skip content)
+        if let Some(session) = app.filtered.get(app.results_state.selected)
+            && session.content.is_empty()
+        {
+            let id = session.id.clone();
+            if app.search_engine.ensure_session_content(&id) {
+                let content = app
+                    .search_engine
+                    .get_session_by_id(&id)
+                    .map(|s| s.content.clone())
+                    .unwrap_or_default();
+                if !content.is_empty() {
+                    if let Some(s) = app.filtered.get_mut(app.results_state.selected) {
+                        s.content.clone_from(&content);
+                    }
+                    if let Some(s) = app.sessions.iter_mut().find(|s| s.id == id) {
+                        s.content = content;
+                    }
+                }
+            }
+        }
+
         let selected = app.filtered.get(app.results_state.selected);
 
         let mut badge_lines = Vec::new();
