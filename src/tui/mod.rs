@@ -55,27 +55,28 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
             let _ = tx.send(LoadingMsg::Done(Box::new(engine)));
         });
 
-        // Defer progress bar creation until first Scanning message to avoid
-        // rendering an empty initial line.
-        let mut pb: Option<ProgressBar> = None;
+        // Create hidden progress bar — set all state before revealing to avoid
+        // rendering intermediate states (empty message line).
+        let pb = ProgressBar::hidden();
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("Building index: {msg} [{bar:30}] {pos}/{len}")
+                .unwrap()
+                .progress_chars("=> "),
+        );
+        let mut revealed = false;
         let mut all_sessions = Vec::new();
         let mut done_engine = None;
         loop {
             match rx.recv() {
                 Ok(LoadingMsg::Scanning(name, idx, total)) => {
-                    let bar = pb.get_or_insert_with(|| {
-                        let b = ProgressBar::new(total as u64);
-                        b.set_style(
-                            ProgressStyle::default_bar()
-                                .template("Building index: {msg} [{bar:30}] {pos}/{len}")
-                                .unwrap()
-                                .progress_chars("=> "),
-                        );
-                        b
-                    });
-                    bar.set_length(total as u64);
-                    bar.set_position(idx as u64);
-                    bar.set_message(name);
+                    pb.set_length(total as u64);
+                    pb.set_message(name);
+                    pb.set_position(idx as u64);
+                    if !revealed {
+                        pb.set_draw_target(indicatif::ProgressDrawTarget::stderr());
+                        revealed = true;
+                    }
                 }
                 Ok(LoadingMsg::Sessions(sessions)) => {
                     all_sessions = sessions;
@@ -87,9 +88,7 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
                 Err(_) => break,
             }
         }
-        if let Some(pb) = pb {
-            pb.finish_and_clear();
-        }
+        pb.finish_and_clear();
         Some((all_sessions, done_engine, rx))
     } else {
         None

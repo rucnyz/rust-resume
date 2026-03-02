@@ -126,14 +126,14 @@ impl SessionSearch {
 
         let pb = if verbose {
             use indicatif::{ProgressBar, ProgressStyle};
-            let pb = ProgressBar::new(adapters_to_scan.len() as u64);
+            let pb = ProgressBar::hidden();
             pb.set_style(
                 ProgressStyle::default_bar()
                     .template("{msg} [{bar:30}] {pos}/{len} adapters")
                     .unwrap()
                     .progress_chars("=> "),
             );
-            pb.set_message("Scanning");
+            pb.set_length(adapters_to_scan.len() as u64);
             Some(pb)
         } else {
             None
@@ -142,10 +142,14 @@ impl SessionSearch {
         let mut all_new: Vec<Session> = Vec::new();
         let mut all_deleted: Vec<String> = Vec::new();
         let mut adapter_timings: AdapterTimings = Vec::new();
-        for i in adapters_to_scan {
+        for (step, i) in adapters_to_scan.into_iter().enumerate() {
             let name = self.adapters[i].name().to_string();
             if let Some(ref pb) = pb {
                 pb.set_message(format!("Scanning {name}"));
+                pb.set_position(step as u64);
+                if step == 0 {
+                    pb.set_draw_target(indicatif::ProgressDrawTarget::stderr());
+                }
             }
             let t = std::time::Instant::now();
             let (new_sessions, deleted) =
@@ -155,13 +159,10 @@ impl SessionSearch {
             adapter_timings.push((name, elapsed, count));
             all_new.extend(new_sessions);
             all_deleted.extend(deleted);
-            if let Some(ref pb) = pb {
-                pb.inc(1);
-            }
         }
 
         if let Some(ref pb) = pb {
-            pb.finish_with_message(format!("Scanned {} sessions", all_new.len()));
+            pb.finish_and_clear();
         }
 
         (all_new, all_deleted, adapter_timings)
