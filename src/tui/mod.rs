@@ -43,10 +43,14 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
     let kb = keybindings::KeyBindings::load(&cfg.keybindings);
     let theme = Theme::from_config(&cfg.theme);
 
-    // On first run, block with progress bar until all adapters finish.
+    // On first run, block with progress display until all adapters finish.
     let preloaded = if first_run {
         use crate::search::{LoadingMsg, SessionSearch};
-        use indicatif::{ProgressBar, ProgressStyle};
+        use std::io::Write;
+
+        // Show immediately, before SessionSearch::new() runs
+        eprint!("\rBuilding index...");
+        let _ = std::io::stderr().flush();
 
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -55,28 +59,13 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
             let _ = tx.send(LoadingMsg::Done(Box::new(engine)));
         });
 
-        // Create hidden progress bar — set all state before revealing to avoid
-        // rendering intermediate states (empty message line).
-        let pb = ProgressBar::hidden();
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("Building index: {msg} [{bar:30}] {pos}/{len}")
-                .unwrap()
-                .progress_chars("=> "),
-        );
-        let mut revealed = false;
         let mut all_sessions = Vec::new();
         let mut done_engine = None;
         loop {
             match rx.recv() {
                 Ok(LoadingMsg::Scanning(name, idx, total)) => {
-                    pb.set_length(total as u64);
-                    pb.set_message(name);
-                    pb.set_position(idx as u64);
-                    if !revealed {
-                        pb.set_draw_target(indicatif::ProgressDrawTarget::stderr());
-                        revealed = true;
-                    }
+                    eprint!("\rBuilding index: {name} [{}/{}]", idx + 1, total);
+                    let _ = std::io::stderr().flush();
                 }
                 Ok(LoadingMsg::Sessions(sessions)) => {
                     all_sessions = sessions;
@@ -88,7 +77,9 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
                 Err(_) => break,
             }
         }
-        pb.finish_and_clear();
+        // Clear the progress line
+        eprint!("\r\x1b[K");
+        let _ = std::io::stderr().flush();
         Some((all_sessions, done_engine, rx))
     } else {
         None

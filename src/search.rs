@@ -124,32 +124,16 @@ impl SessionSearch {
             None => (0..self.adapters.len()).collect(),
         };
 
-        let pb = if verbose {
-            use indicatif::{ProgressBar, ProgressStyle};
-            let pb = ProgressBar::hidden();
-            pb.set_style(
-                ProgressStyle::default_bar()
-                    .template("{msg} [{bar:30}] {pos}/{len} adapters")
-                    .unwrap()
-                    .progress_chars("=> "),
-            );
-            pb.set_length(adapters_to_scan.len() as u64);
-            Some(pb)
-        } else {
-            None
-        };
-
+        let total_adapters = adapters_to_scan.len();
         let mut all_new: Vec<Session> = Vec::new();
         let mut all_deleted: Vec<String> = Vec::new();
         let mut adapter_timings: AdapterTimings = Vec::new();
         for (step, i) in adapters_to_scan.into_iter().enumerate() {
             let name = self.adapters[i].name().to_string();
-            if let Some(ref pb) = pb {
-                pb.set_message(format!("Scanning {name}"));
-                pb.set_position(step as u64);
-                if step == 0 {
-                    pb.set_draw_target(indicatif::ProgressDrawTarget::stderr());
-                }
+            if verbose {
+                use std::io::Write;
+                eprint!("\rScanning {name} [{}/{}]", step + 1, total_adapters);
+                let _ = std::io::stderr().flush();
             }
             let t = std::time::Instant::now();
             let (new_sessions, deleted) =
@@ -161,8 +145,10 @@ impl SessionSearch {
             all_deleted.extend(deleted);
         }
 
-        if let Some(ref pb) = pb {
-            pb.finish_and_clear();
+        if verbose {
+            use std::io::Write;
+            eprint!("\r\x1b[K");
+            let _ = std::io::stderr().flush();
         }
 
         (all_new, all_deleted, adapter_timings)
