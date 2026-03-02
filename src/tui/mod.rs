@@ -64,7 +64,7 @@ pub fn run_tui(yolo: bool, directory: Option<&str>) -> anyhow::Result<()> {
         loop {
             match rx.recv() {
                 Ok(LoadingMsg::Scanning(name, idx, total)) => {
-                    eprint!("\rBuilding index: {name} [{}/{}]", idx + 1, total);
+                    eprint!("\rBuilding index: {name} [{}/{}]\x1b[K", idx + 1, total);
                     let _ = std::io::stderr().flush();
                 }
                 Ok(LoadingMsg::Sessions(sessions)) => {

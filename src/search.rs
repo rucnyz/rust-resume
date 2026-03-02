@@ -132,7 +132,7 @@ impl SessionSearch {
             let name = self.adapters[i].name().to_string();
             if verbose {
                 use std::io::Write;
-                eprint!("\rScanning {name} [{}/{}]", step + 1, total_adapters);
+                eprint!("\rScanning {name} [{}/{}]\x1b[K", step + 1, total_adapters);
                 let _ = std::io::stderr().flush();
             }
             let t = std::time::Instant::now();
