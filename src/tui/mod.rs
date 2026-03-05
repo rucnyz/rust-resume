@@ -180,7 +180,6 @@ fn run_loop(
         if app.check_loading() {
             needs_redraw = true;
         }
-
         // Detect terminal resize even if Event::Resize wasn't fired (Wayland)
         let current_size = terminal.size()?;
         if current_size != last_size {
@@ -310,10 +309,7 @@ fn draw_search_box(f: &mut ratatui::Frame, area: Rect, app: &App) {
         let inner = block.inner(area);
         f.render_widget(block, area);
 
-        let mut spans = vec![Span::styled(
-            "> ",
-            Style::default().fg(theme.tertiary),
-        )];
+        let mut spans = vec![Span::styled("> ", Style::default().fg(theme.tertiary))];
 
         if app.relocate_input.is_empty() {
             spans.push(Span::styled(
@@ -472,6 +468,7 @@ fn draw_content(f: &mut ratatui::Frame, area: Rect, app: &mut App) {
             top_logical_line: &mut app.preview_top_logical_line,
             focused: app.focused_pane == FocusedPane::Preview,
             theme: &app.theme,
+            cache: &mut app.preview_cache,
         };
         f.render_widget(preview, chunks[1]);
 

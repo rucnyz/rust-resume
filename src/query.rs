@@ -25,6 +25,8 @@ pub struct Filter {
 #[derive(Debug, Clone, Default)]
 pub struct ParsedQuery {
     pub text: String,
+    /// Words wrapped in quotes — only exact token match, no substring/fuzzy.
+    pub exact_terms: Vec<String>,
     pub agent: Option<Filter>,
     pub directory: Option<Filter>,
     pub date: Option<DateFilter>,
@@ -159,7 +161,42 @@ pub fn parse_query(query: &str) -> ParsedQuery {
         }
     }
 
-    result.text = remaining.split_whitespace().collect::<Vec<_>>().join(" ");
+    // Extract "quoted" exact terms from remaining text
+    let mut exact_terms = Vec::new();
+    let mut text_parts = Vec::new();
+    let mut chars = remaining.chars().peekable();
+    let mut buf = String::new();
+    while let Some(c) = chars.next() {
+        if c == '"' {
+            // Flush pending unquoted text
+            if !buf.is_empty() {
+                text_parts.push(std::mem::take(&mut buf));
+            }
+            // Collect until closing quote
+            let mut quoted = String::new();
+            for qc in chars.by_ref() {
+                if qc == '"' {
+                    break;
+                }
+                quoted.push(qc);
+            }
+            let trimmed = quoted.trim().to_string();
+            if !trimmed.is_empty() {
+                exact_terms.push(trimmed);
+            }
+        } else {
+            buf.push(c);
+        }
+    }
+    if !buf.is_empty() {
+        text_parts.push(buf);
+    }
+    result.exact_terms = exact_terms;
+    result.text = text_parts
+        .join(" ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     result
 }
 

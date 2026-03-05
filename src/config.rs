@@ -166,6 +166,9 @@ pub struct AppConfig {
     pub theme: Option<crate::tui::theme::ThemeConfig>,
     /// Max search results returned per query. Default: 1000.
     pub search_limit: Option<usize>,
+    /// Minimum query term length for fuzzy matching. Default: 6.
+    /// Terms shorter than this only use exact + substring matching.
+    pub fuzzy_min_length: Option<usize>,
 }
 
 /// Per-agent path configuration. All fields optional.

@@ -148,11 +148,12 @@ pub fn extract_highlight_terms(query: &str) -> Vec<String> {
                 && !t.starts_with("dir:")
                 && !t.starts_with("date:")
         })
-        .map(|t| t.to_lowercase())
+        .map(|t| t.trim_matches('"').to_lowercase())
+        .filter(|t| !t.is_empty())
         .collect()
 }
 
-/// Highlight query terms in text, returning owned Spans.
+/// Highlight query terms in text via exact substring matching, returning owned Spans.
 /// `terms` should be precomputed via `extract_highlight_terms()`.
 pub fn highlight_spans_with_terms(
     text: &str,
@@ -167,7 +168,6 @@ pub fn highlight_spans_with_terms(
 
     let highlight_style = base_style.add_modifier(Modifier::BOLD | Modifier::REVERSED);
 
-    // Case-insensitive search using byte-level ASCII folding (no allocation per row)
     let text_bytes = text.as_bytes();
     let mut matches: Vec<(usize, usize)> = Vec::new();
     for term in terms {
@@ -179,7 +179,6 @@ pub fn highlight_spans_with_terms(
         while start + term_bytes.len() <= text_bytes.len() {
             if text_bytes[start..start + term_bytes.len()].eq_ignore_ascii_case(term_bytes) {
                 matches.push((start, start + term_bytes.len()));
-                // Advance past current match start by one character
                 start += text[start..]
                     .chars()
                     .next()
@@ -199,12 +198,13 @@ pub fn highlight_spans_with_terms(
         return vec![Span::styled(text.to_string(), base_style)];
     }
 
-    // Sort and merge overlapping
-    matches.sort_unstable_by_key(|m| m.0);
+    matches.sort_unstable();
+
+    // Merge overlapping
     let mut merged: Vec<(usize, usize)> = Vec::new();
     for m in matches {
         if let Some(last) = merged.last_mut()
-            && m.0 <= last.1
+            && m.0 < last.1
         {
             last.1 = last.1.max(m.1);
             continue;

@@ -9,13 +9,17 @@ use tantivy::query::{
     RegexQuery, TermQuery, TermSetQuery,
 };
 use tantivy::schema::*;
+use tantivy::tokenizer::{
+    LowerCaser, SimpleTokenizer, TextAnalyzer, Token, TokenStream, Tokenizer,
+};
 use tantivy::{Index, IndexReader, IndexWriter, Order, ReloadPolicy, Searcher, Term, doc};
 
 use crate::config;
 use crate::query::{DateFilter, DateOp, Filter};
 use crate::session::Session;
 
-const SCHEMA_VERSION: u32 = 22; // Fast fields for metadata
+const SCHEMA_VERSION: u32 = 23; // CJK unigram tokenizer
+const CJK_TOKENIZER_NAME: &str = "cjk_unigram";
 const LOCK_FILE: &str = ".tantivy-writer.lock";
 const WRITER_MEMORY: usize = 50_000_000; // 50MB
 const SCAN_MARKER: &str = ".last_scan";
@@ -50,11 +54,19 @@ impl TantivyIndex {
 
     pub fn new_with_path(index_path: PathBuf) -> Self {
         let mut builder = Schema::builder();
+        let cjk_text_options = TextOptions::default()
+            .set_indexing_options(
+                TextFieldIndexing::default()
+                    .set_tokenizer(CJK_TOKENIZER_NAME)
+                    .set_index_option(IndexRecordOption::WithFreqsAndPositions),
+            )
+            .set_stored();
+        let cjk_text_fast = cjk_text_options.clone().set_fast(None);
         let f_id = builder.add_text_field("id", (STRING | STORED).set_fast(None));
-        let f_title = builder.add_text_field("title", (TEXT | STORED).set_fast(None));
+        let f_title = builder.add_text_field("title", cjk_text_fast);
         let f_directory = builder.add_text_field("directory", (STRING | STORED).set_fast(None));
         let f_agent = builder.add_text_field("agent", (STRING | STORED).set_fast(None));
-        let f_content = builder.add_text_field("content", TEXT | STORED);
+        let f_content = builder.add_text_field("content", cjk_text_options);
         let f_timestamp = builder.add_f64_field(
             "timestamp",
             NumericOptions::default()
@@ -134,6 +146,13 @@ impl TantivyIndex {
                 }
             },
         };
+
+        index.tokenizers().register(
+            CJK_TOKENIZER_NAME,
+            TextAnalyzer::builder(CjkUnigramTokenizer)
+                .filter(LowerCaser)
+                .build(),
+        );
 
         let reader = index
             .reader_builder()
@@ -470,24 +489,35 @@ impl TantivyIndex {
     }
 
     /// Search sessions with text query and filters.
+    #[allow(clippy::too_many_arguments)]
     pub fn search(
         &self,
         query_text: &str,
+        exact_terms: &[String],
         agent_filter: Option<&Filter>,
         directory_filter: Option<&Filter>,
         date_filter: Option<&DateFilter>,
         limit: usize,
+        fuzzy_min_length: usize,
     ) -> Vec<(String, f64)> {
         let searcher = self.searcher();
         let index = self.index.as_ref().unwrap();
 
         let mut must_clauses: Vec<(Occur, Box<dyn tantivy::query::Query>)> = Vec::new();
 
-        // Text query (hybrid exact + fuzzy)
+        // Text query (hybrid exact + substring + fuzzy)
         if !query_text.is_empty()
-            && let Some(q) = self.build_hybrid_query(index, query_text)
+            && let Some(q) = self.build_hybrid_query(index, query_text, fuzzy_min_length)
         {
             must_clauses.push((Occur::Must, q));
+        }
+
+        // Quoted exact terms — only BM25 token match, no substring/fuzzy
+        for term in exact_terms {
+            let parser = QueryParser::for_index(index, vec![self.f_title, self.f_content]);
+            if let Ok(q) = parser.parse_query(term) {
+                must_clauses.push((Occur::Must, q));
+            }
         }
 
         // Agent filter
@@ -563,27 +593,49 @@ impl TantivyIndex {
         &self,
         index: &Index,
         query_text: &str,
+        fuzzy_min_length: usize,
     ) -> Option<Box<dyn tantivy::query::Query>> {
         // Exact match (BM25) boosted 5x
         let parser = QueryParser::for_index(index, vec![self.f_title, self.f_content]);
         let exact_query = parser.parse_query(query_text).ok()?;
         let boosted_exact = BoostQuery::new(exact_query, 5.0);
 
-        // Fuzzy match per term
+        // Substring + optional fuzzy match per term
         let mut fuzzy_parts: Vec<(Occur, Box<dyn tantivy::query::Query>)> = Vec::new();
         for term_str in query_text.split_whitespace() {
-            let fuzzy_title =
-                FuzzyTermQuery::new_prefix(Term::from_field_text(self.f_title, term_str), 1, true);
-            let fuzzy_content = FuzzyTermQuery::new_prefix(
-                Term::from_field_text(self.f_content, term_str),
-                1,
-                true,
-            );
-            let term_q = BooleanQuery::new(vec![
-                (Occur::Should, Box::new(fuzzy_title)),
-                (Occur::Should, Box::new(fuzzy_content)),
-            ]);
-            fuzzy_parts.push((Occur::Must, Box::new(term_q)));
+            let lower = term_str.to_lowercase();
+            let pattern = format!(".*{}.*", regex::escape(&lower));
+            let mut clauses: Vec<(Occur, Box<dyn tantivy::query::Query>)> = Vec::new();
+
+            // Substring match via regex (catches "rsyncd", "gorsync", etc.)
+            if let Ok(q) = RegexQuery::from_pattern(&pattern, self.f_title) {
+                clauses.push((Occur::Should, Box::new(q)));
+            }
+            if let Ok(q) = RegexQuery::from_pattern(&pattern, self.f_content) {
+                clauses.push((Occur::Should, Box::new(q)));
+            }
+
+            // Fuzzy match only for terms >= fuzzy_min_length chars
+            if lower.len() >= fuzzy_min_length {
+                clauses.push((
+                    Occur::Should,
+                    Box::new(FuzzyTermQuery::new_prefix(
+                        Term::from_field_text(self.f_title, &lower),
+                        1,
+                        true,
+                    )),
+                ));
+                clauses.push((
+                    Occur::Should,
+                    Box::new(FuzzyTermQuery::new_prefix(
+                        Term::from_field_text(self.f_content, &lower),
+                        1,
+                        true,
+                    )),
+                ));
+            }
+
+            fuzzy_parts.push((Occur::Must, Box::new(BooleanQuery::new(clauses))));
         }
 
         let fuzzy_query = BooleanQuery::new(fuzzy_parts);
@@ -721,5 +773,117 @@ impl TantivyIndex {
             let _ = writer.commit();
             self.reload_reader();
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CJK-aware tokenizer: emits individual CJK characters as separate tokens,
+// falls back to SimpleTokenizer behavior for non-CJK text.
+// ---------------------------------------------------------------------------
+
+fn is_cjk(c: char) -> bool {
+    matches!(c,
+        '\u{4E00}'..='\u{9FFF}'   // CJK Unified Ideographs
+        | '\u{3400}'..='\u{4DBF}' // Extension A
+        | '\u{F900}'..='\u{FAFF}' // Compatibility
+        | '\u{3000}'..='\u{303F}' // CJK Symbols
+        | '\u{3040}'..='\u{309F}' // Hiragana
+        | '\u{30A0}'..='\u{30FF}' // Katakana
+        | '\u{AC00}'..='\u{D7AF}' // Hangul
+    )
+}
+
+#[derive(Clone)]
+struct CjkUnigramTokenizer;
+
+impl Tokenizer for CjkUnigramTokenizer {
+    type TokenStream<'a> = CjkUnigramTokenStream;
+
+    fn token_stream(&mut self, text: &str) -> Self::TokenStream<'_> {
+        let mut tokens = Vec::new();
+        // Run SimpleTokenizer first, then split CJK characters within each token
+        let mut simple = SimpleTokenizer::default();
+        let mut stream = simple.token_stream(text);
+        while let Some(tok) = stream.next() {
+            let word = &tok.text;
+            if word.chars().any(is_cjk) {
+                // Split: emit each CJK char individually, group non-CJK runs
+                let offset = tok.offset_from;
+                let mut non_cjk_start = None;
+                for (i, c) in word.char_indices() {
+                    if is_cjk(c) {
+                        // Flush any pending non-CJK run
+                        if let Some(start) = non_cjk_start.take() {
+                            let text = &word[start..i];
+                            if !text.is_empty() {
+                                tokens.push(Token {
+                                    offset_from: offset + start,
+                                    offset_to: offset + i,
+                                    position: tokens.len(),
+                                    text: text.to_string(),
+                                    ..Default::default()
+                                });
+                            }
+                        }
+                        // Emit CJK character
+                        tokens.push(Token {
+                            offset_from: offset + i,
+                            offset_to: offset + i + c.len_utf8(),
+                            position: tokens.len(),
+                            text: c.to_string(),
+                            ..Default::default()
+                        });
+                    } else if non_cjk_start.is_none() {
+                        non_cjk_start = Some(i);
+                    }
+                }
+                // Flush trailing non-CJK
+                if let Some(start) = non_cjk_start {
+                    let text = &word[start..];
+                    if !text.is_empty() {
+                        tokens.push(Token {
+                            offset_from: offset + start,
+                            offset_to: tok.offset_to,
+                            position: tokens.len(),
+                            text: text.to_string(),
+                            ..Default::default()
+                        });
+                    }
+                }
+            } else {
+                // Pure non-CJK token, keep as-is
+                tokens.push(Token {
+                    offset_from: tok.offset_from,
+                    offset_to: tok.offset_to,
+                    position: tokens.len(),
+                    text: word.clone(),
+                    ..Default::default()
+                });
+            }
+        }
+        CjkUnigramTokenStream {
+            tokens,
+            index: usize::MAX, // pre-first; advance() moves to 0
+        }
+    }
+}
+
+struct CjkUnigramTokenStream {
+    tokens: Vec<Token>,
+    index: usize,
+}
+
+impl TokenStream for CjkUnigramTokenStream {
+    fn advance(&mut self) -> bool {
+        self.index = self.index.wrapping_add(1);
+        self.index < self.tokens.len()
+    }
+
+    fn token(&self) -> &Token {
+        &self.tokens[self.index]
+    }
+
+    fn token_mut(&mut self) -> &mut Token {
+        &mut self.tokens[self.index]
     }
 }

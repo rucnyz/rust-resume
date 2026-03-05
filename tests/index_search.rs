@@ -361,7 +361,7 @@ fn test_search_text_match() {
     ];
     idx.add_sessions(&sessions);
 
-    let results = idx.search("niri", None, None, None, 10);
+    let results = idx.search("niri", &[], None, None, None, 10, 6);
     assert!(
         !results.is_empty(),
         "Search for 'niri' should find at least one result"
@@ -393,11 +393,23 @@ fn test_search_fuzzy() {
     );
     idx.add_sessions(&[s]);
 
-    // "nri" is edit distance 1 from "niri"
-    let results = idx.search("nri", None, None, None, 10);
+    // "nri" is 3 chars (< 6) and not a substring of "niri", so no match
+    let results = idx.search("nri", &[], None, None, None, 10, 6);
+    assert!(
+        results.is_empty(),
+        "Short non-substring 'nri' should not fuzzy-match 'niri'"
+    );
+
+    // But "nir" IS a substring of "niri", so substring regex matches
+    let results = idx.search("nir", &[], None, None, None, 10, 6);
+    assert!(!results.is_empty(), "Substring 'nir' should match 'niri'");
+    assert_eq!(results[0].0, "s1");
+
+    // Fuzzy only kicks in for terms >= 6 chars: "compostor" → "compositor" (distance 1)
+    let results = idx.search("compostor", &[], None, None, None, 10, 6);
     assert!(
         !results.is_empty(),
-        "Fuzzy search for 'nri' should find 'niri'"
+        "Fuzzy search for 'compostor' should find 'compositor'"
     );
     assert_eq!(results[0].0, "s1");
 }
@@ -444,7 +456,7 @@ fn test_search_agent_filter() {
         include: vec!["claude".to_string()],
         exclude: vec![],
     };
-    let results = idx.search("", Some(&agent_filter), None, None, 10);
+    let results = idx.search("", &[], Some(&agent_filter), None, None, 10, 6);
     assert_eq!(results.len(), 2, "Should find exactly 2 claude sessions");
     let ids: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
     assert!(ids.contains(&"s1"));
@@ -484,7 +496,7 @@ fn test_search_directory_filter() {
         include: vec!["rust-resume".to_string()],
         exclude: vec![],
     };
-    let results = idx.search("", None, Some(&dir_filter), None, 10);
+    let results = idx.search("", &[], None, Some(&dir_filter), None, 10, 6);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].0, "s1");
 }
@@ -525,7 +537,7 @@ fn test_search_date_filter() {
         cutoff,
         negated: false,
     };
-    let results = idx.search("", None, None, Some(&date_filter), 10);
+    let results = idx.search("", &[], None, None, Some(&date_filter), 10, 6);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].0, "s2");
 }
@@ -572,7 +584,7 @@ fn test_search_combined_filters() {
         include: vec!["claude".to_string()],
         exclude: vec![],
     };
-    let results = idx.search("niri", Some(&agent_filter), None, None, 10);
+    let results = idx.search("niri", &[], Some(&agent_filter), None, None, 10, 6);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].0, "s1");
 }
@@ -615,7 +627,7 @@ fn test_search_empty_query() {
     ];
     idx.add_sessions(&sessions);
 
-    let results = idx.search("", None, None, None, 10);
+    let results = idx.search("", &[], None, None, None, 10, 6);
     assert_eq!(results.len(), 3);
     // Empty query sorts by timestamp descending
     assert_eq!(results[0].0, "s3"); // newest first
@@ -639,7 +651,7 @@ fn test_search_no_results() {
     );
     idx.add_sessions(&[s]);
 
-    let results = idx.search("zzzznonexistentterm", None, None, None, 10);
+    let results = idx.search("zzzznonexistentterm", &[], None, None, None, 10, 6);
     assert!(results.is_empty());
 }
 
@@ -681,7 +693,7 @@ fn test_search_limit() {
     ];
     idx.add_sessions(&sessions);
 
-    let results = idx.search("", None, None, None, 2);
+    let results = idx.search("", &[], None, None, None, 2, 6);
     assert_eq!(results.len(), 2);
 }
 
@@ -693,7 +705,10 @@ fn test_empty_index() {
 
     assert!(idx.get_all_sessions().is_empty());
     assert!(idx.get_known_sessions().is_empty());
-    assert!(idx.search("anything", None, None, None, 10).is_empty());
+    assert!(
+        idx.search("anything", &[], None, None, None, 10, 6)
+            .is_empty()
+    );
     assert!(idx.get_session_content("nonexistent").is_none());
 }
 
@@ -749,7 +764,7 @@ fn test_cjk_search() {
     ];
     idx.add_sessions(&sessions);
 
-    let results = idx.search("窗口", None, None, None, 10);
+    let results = idx.search("窗口", &[], None, None, None, 10, 6);
     assert!(!results.is_empty(), "Should find CJK text '窗口'");
     assert!(results.iter().any(|(id, _)| id == "s1"));
 }

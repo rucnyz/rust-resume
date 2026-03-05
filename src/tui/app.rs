@@ -125,6 +125,8 @@ pub struct App {
     prev_query_empty: bool,
     /// Max search results returned per query (configurable via config.toml).
     search_limit_cap: usize,
+    /// Cached preview lines + physical layout.
+    pub preview_cache: Option<super::preview::PreviewCache>,
 }
 
 impl App {
@@ -179,6 +181,7 @@ impl App {
             search_scores: HashMap::new(),
             prev_query_empty: true,
             search_limit_cap: search_limit,
+            preview_cache: None,
         }
     }
 
@@ -838,7 +841,9 @@ impl App {
             {
                 // Delete path segment backward: skip trailing '/' before searching
                 if self.relocate_cursor > 0 {
-                    let search_end = if self.relocate_input.as_bytes().get(self.relocate_cursor - 1) == Some(&b'/') {
+                    let search_end = if self.relocate_input.as_bytes().get(self.relocate_cursor - 1)
+                        == Some(&b'/')
+                    {
                         self.relocate_cursor - 1
                     } else {
                         self.relocate_cursor
@@ -935,10 +940,7 @@ impl App {
             (std::path::Path::new(&expanded).to_path_buf(), "")
         } else {
             let p = path.parent().unwrap_or(std::path::Path::new("/"));
-            let name = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("");
+            let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
             (p.to_path_buf(), name)
         };
 

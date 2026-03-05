@@ -278,10 +278,7 @@ impl KeyBindings {
                 vec![k(KeyCode::BackTab, none)],
             ),
             (Action::RefreshSessions, vec![k(KeyCode::Char('r'), ctrl)]),
-            (
-                Action::RelocateSession,
-                vec![k(KeyCode::Char('o'), ctrl)],
-            ),
+            (Action::RelocateSession, vec![k(KeyCode::Char('o'), ctrl)]),
             // Results-focused
             (Action::NavigateDown, vec![k(KeyCode::Down, none)]),
             (Action::NavigateUp, vec![k(KeyCode::Up, none)]),

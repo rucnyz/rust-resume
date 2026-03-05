@@ -42,6 +42,8 @@ pub struct SessionSearch {
     /// Pending changes from list_streaming(), committed later via fork.
     pending_new: Vec<Session>,
     pending_deleted: Vec<String>,
+    /// Minimum query term length for fuzzy matching. Default: 6.
+    pub fuzzy_min_length: usize,
 }
 
 impl Default for SessionSearch {
@@ -95,6 +97,7 @@ impl SessionSearch {
             last_scan_timings: None,
             pending_new: Vec::new(),
             pending_deleted: Vec::new(),
+            fuzzy_min_length: cfg.fuzzy_min_length.unwrap_or(6),
         }
     }
 
@@ -400,10 +403,12 @@ impl SessionSearch {
 
         let results = self.index.search(
             &parsed.text,
+            &parsed.exact_terms,
             effective_agent.as_ref(),
             effective_dir.as_ref(),
             parsed.date.as_ref(),
             limit,
+            self.fuzzy_min_length,
         );
 
         // Store in cache (evict all if full)
